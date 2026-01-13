@@ -3,50 +3,144 @@ import 'package:hive/hive.dart';
 import '../../data/models/period_log.dart';
 import '../services/prediction_engine.dart';
 
+enum PeriodStatus { wellness, preparation, active }
+
 class PeriodController extends GetxController {
-  // Access the box opened in main.dart
-  final Box<PeriodLog> _box = Hive.box<PeriodLog>('period_box');
+  final Box<PeriodLog> _logBox = Hive.box<PeriodLog>('period_box');
+  late Box _settingsBox;
 
-  // Observable list of logs - the UI will track this
   var allLogs = <PeriodLog>[].obs;
-
-  // Observable prediction - the UI will track this too
   var predictedStartDate = DateTime.now().obs;
+  var userName = "Beautiful Girl".obs;
 
   @override
   void onInit() {
     super.onInit();
+    _settingsBox = Hive.box('settings_box');
+    userName.value = _settingsBox.get(
+      'user_name',
+      defaultValue: "Beautiful Girl",
+    );
     refreshData();
   }
 
-  // Pull data from Hive and ask the Engine to calculate
+  // PeriodStatus get currentStatus {
+  //   final now = DateTime(
+  //     DateTime.now().year,
+  //     DateTime.now().month,
+  //     DateTime.now().day,
+  //   );
+
+  //   // Check active period (Inclusive check)
+  //   if (allLogs.isNotEmpty) {
+  //     final last = allLogs.first;
+  //     final start = DateTime(
+  //       last.startDate.year,
+  //       last.startDate.month,
+  //       last.startDate.day,
+  //     );
+  //     final end = DateTime(
+  //       last.endDate.year,
+  //       last.endDate.month,
+  //       last.endDate.day,
+  //     );
+
+  //     if (!now.isBefore(start) && !now.isAfter(end)) {
+  //       return PeriodStatus.active;
+  //     }
+  //   }
+
+  //   // check preparation window
+  //   final pred = predictedStartDate.value;
+  //   final predictionDate = DateTime(pred.year, pred.month, pred.day);
+  //   final daysUntil = predictionDate.difference(now).inDays;
+
+  //   if (daysUntil >= 0 && daysUntil <= 3) {
+  //     return PeriodStatus.preparation;
+  //   }
+
+  //   return PeriodStatus.wellness;
+  // }
+
+  PeriodStatus get currentStatus {
+    final now = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
+
+    // Check active period
+    if (allLogs.isNotEmpty) {
+      final last = allLogs.first;
+      final start = DateTime(
+        last.startDate.year,
+        last.startDate.month,
+        last.startDate.day,
+      );
+      final end = DateTime(
+        last.endDate.year,
+        last.endDate.month,
+        last.endDate.day,
+      );
+
+      if (!now.isBefore(start) && !now.isAfter(end)) {
+        return PeriodStatus.active;
+      }
+    }
+
+    // check preparation/overdue window
+    final pred = predictedStartDate.value;
+    final predictionDate = DateTime(pred.year, pred.month, pred.day);
+    final daysUntil = predictionDate.difference(now).inDays;
+
+    // FIX: Change 'daysUntil >= 0' to 'daysUntil <= 3'
+    // If it's 3, 2, 1, 0, or -5 (overdue), it should show 'Preparation chips'
+    if (daysUntil <= 3) {
+      return PeriodStatus.preparation;
+    }
+
+    return PeriodStatus.wellness;
+  }
+
+  bool get isNearPeriod => currentStatus != PeriodStatus.wellness;
+
   void refreshData() {
-    // Get all logs from database
-    allLogs.assignAll(_box.values.toList());
+    var logs = _logBox.values.toList();
+    logs.sort((a, b) => b.startDate.compareTo(a.startDate));
 
-    // Sort them so newest is first
-    allLogs.sort((a, b) => b.startDate.compareTo(a.startDate));
+    // Healing Engine: Recalculate all gaps
+    for (int i = 0; i < logs.length; i++) {
+      if (i < logs.length - 1) {
+        int gap = logs[i].startDate.difference(logs[i + 1].startDate).inDays;
+        if (logs[i].cycleLength != gap) {
+          logs[i].cycleLength = gap;
+          logs[i].save();
+        }
+      } else if (logs[i].cycleLength != 0) {
+        logs[i].cycleLength = 0;
+        logs[i].save();
+      }
+    }
 
-    // Ask the Engine: "Based on these logs, when is the next one?"
+    allLogs.assignAll(logs);
     predictedStartDate.value = PredictionEngine.predictNextStart(allLogs);
   }
 
-  // Add a new period
   Future<void> savePeriod(DateTime start, DateTime end) async {
-    int calculatedCycle = 28;
+    final newLog = PeriodLog(startDate: start, endDate: end, cycleLength: 0);
+    await _logBox.add(newLog);
+    refreshData();
+  }
 
-    if (allLogs.isNotEmpty) {
-      // Calculate the gap between current new start and the previous start
-      calculatedCycle = start.difference(allLogs.first.startDate).inDays;
-    }
+  void updateName(String name) {
+    userName.value = name;
+    _settingsBox.put('user_name', name);
+  }
 
-    final newLog = PeriodLog(
-      startDate: start,
-      endDate: end,
-      cycleLength: calculatedCycle,
-    );
-
-    await _box.add(newLog); // Save to disk
-    refreshData(); // Update the UI immediately
+  Future<void> wipeData() async {
+    await _logBox.clear();
+    await _settingsBox.clear();
+    userName.value = "Beautiful Girl";
+    refreshData();
   }
 }
