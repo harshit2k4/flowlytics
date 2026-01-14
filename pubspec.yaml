@@ -1,5 +1,6 @@
 name: flowlytics
-description: "Privacy-centric period tracker with smart cycle predictions, built in Flutter."
+description: "Privacy-centric period tracker with smart cycle predictions, built
+  in Flutter."
 publish_to: 'none'
 version: 0.1.0
 
@@ -15,6 +16,7 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   intl: ^0.20.2
+  material_symbols_icons: ^4.2892.0
   path_provider: ^2.1.5
 
 dev_dependencies:
