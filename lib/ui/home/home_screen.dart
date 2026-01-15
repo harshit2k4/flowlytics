@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flowlytics/core/constants/app_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../logic/controllers/period_controller.dart';
@@ -395,80 +396,87 @@ class _HomeScreenState extends State<HomeScreen> {
         phaseSubtitle = "Your personal wellness insight.";
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          // Increased padding from 20 to 26 for a more "airy" feel
-          padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
-          decoration: BoxDecoration(
-            color: Theme.of(
-              context,
-            ).colorScheme.primaryContainer.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+    return GestureDetector(
+      onDoubleTap: () => _showEasterEgg(context, phase),
+      behavior: HitTestBehavior.opaque,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            // Increased padding from 20 to 26 for a more "airy" feel
+            padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
+            decoration: BoxDecoration(
+              color: Theme.of(
+                context,
+              ).colorScheme.primaryContainer.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              ),
             ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Slightly larger icon container to match increased padding
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                  shape: BoxShape.circle,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Slightly larger icon container to match increased padding
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    phaseIcon,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 26, // Increased from 24
+                  ),
                 ),
-                child: Icon(
-                  phaseIcon,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 26, // Increased from 24
+                const SizedBox(
+                  width: 20,
+                ), // Increased spacing between icon and text
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        "CURRENT BIOLOGY",
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          letterSpacing: 1.5,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                          height: 1.1,
+                        ),
+                      ),
+                      const SizedBox(height: 8), // Slightly larger gap
+                      Text(
+                        phase,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          height: 1.2,
+                          fontSize:
+                              22, // Slightly increased for a bolder presence
+                        ),
+                      ),
+                      const SizedBox(height: 6), // Slightly larger gap
+                      Text(
+                        "“$phaseSubtitle”",
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurfaceVariant.withOpacity(0.8),
+                          fontStyle: FontStyle.italic,
+                          height:
+                              1.4, // More line height for better readability
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(
-                width: 20,
-              ), // Increased spacing between icon and text
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      "CURRENT BIOLOGY",
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        letterSpacing: 1.5,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                        height: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 8), // Slightly larger gap
-                    Text(
-                      phase,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        height: 1.2,
-                        fontSize:
-                            22, // Slightly increased for a bolder presence
-                      ),
-                    ),
-                    const SizedBox(height: 6), // Slightly larger gap
-                    Text(
-                      "“$phaseSubtitle”",
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurfaceVariant.withOpacity(0.8),
-                        fontStyle: FontStyle.italic,
-                        height: 1.4, // More line height for better readability
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -520,6 +528,101 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  // hidden easter egg popup
+  void _showEasterEgg(BuildContext context, String phase) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "EasterEgg",
+      barrierColor: Colors.black.withOpacity(
+        0.4,
+      ), // Subtle dimming of the background
+      transitionDuration: const Duration(milliseconds: 500),
+      pageBuilder: (context, anim1, anim2) {
+        return Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 40),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(32),
+              // Deep frosted glass effect
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surface.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Column(
+                      mainAxisSize:
+                          MainAxisSize.min, // Shrinks box to fit content
+                      children: [
+                        Icon(
+                          Icons.favorite_rounded,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 28,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // The secret one liner note
+                        Text(
+                          AppStrings.secretNote,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
+                                fontStyle: FontStyle.italic,
+                                fontWeight: FontWeight.w500,
+                              ),
+                        ),
+
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Divider(thickness: 0.5),
+                        ),
+
+                        // Biological tip for current phase
+                        Text(
+                          AppStrings.getPhaseDetailedInfo(phase),
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                                height: 1.4,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        // Smooth fade and scale-up animation
+        return FadeTransition(
+          opacity: anim1,
+          child: ScaleTransition(
+            scale: CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic),
+            child: child,
+          ),
+        );
+      },
     );
   }
 }
