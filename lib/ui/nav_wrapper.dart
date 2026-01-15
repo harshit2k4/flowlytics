@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'home/home_screen.dart';
+import 'charts/charts_screen.dart';
+import 'me/me_screen.dart';
 import '../logic/controllers/period_controller.dart';
 
 class NavWrapper extends StatefulWidget {
@@ -15,11 +18,10 @@ class _NavWrapperState extends State<NavWrapper> {
   // init controller
   final controller = Get.put(PeriodController());
 
-  // TODO: Replace these placeholders with real screens
   final List<Widget> _pages = [
-    const Center(child: Text("Home Screen")),
-    const Center(child: Text("Charts & Data")),
-    const Center(child: Text("Profile & Settings")),
+    const HomeScreen(),
+    const ChartsScreen(),
+    const MeScreen(),
   ];
 
   @override
@@ -40,9 +42,9 @@ class _NavWrapperState extends State<NavWrapper> {
             label: 'Home',
           ),
           NavigationDestination(
-            icon: Icon(Icons.bar_chart_rounded),
-            selectedIcon: Icon(Icons.bar_chart_rounded),
-            label: 'Charts',
+            icon: Icon(Icons.show_chart_outlined),
+            selectedIcon: Icon(Icons.insights),
+            label: 'Analytics',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
