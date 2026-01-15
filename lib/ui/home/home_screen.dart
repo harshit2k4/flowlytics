@@ -47,6 +47,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   _buildQuoteCard(context),
                   const SizedBox(height: 32),
+                  Obx(() => _buildPhaseInsightCard(context, controller)),
+                  const SizedBox(height: 32),
                   Obx(() => _buildCircularProgress(context, controller)),
                   const SizedBox(height: 40),
                   Obx(() => _buildSmartChipsSection(context, controller)),
@@ -293,6 +295,181 @@ class _HomeScreenState extends State<HomeScreen> {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // Older implementation
+  // Widget _buildPhaseInsightCard(
+  //   BuildContext context,
+  //   PeriodController controller,
+  // ) {
+  //   return ClipRRect(
+  //     borderRadius: BorderRadius.circular(24),
+  //     child: BackdropFilter(
+  //       filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+  //       child: Container(
+  //         padding: const EdgeInsets.all(20),
+  //         decoration: BoxDecoration(
+  //           color: Theme.of(
+  //             context,
+  //           ).colorScheme.primaryContainer.withOpacity(0.15),
+  //           borderRadius: BorderRadius.circular(24),
+  //           border: Border.all(
+  //             color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+  //           ),
+  //         ),
+  //         child: Row(
+  //           children: [
+  //             Container(
+  //               padding: const EdgeInsets.all(12),
+  //               decoration: BoxDecoration(
+  //                 color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+  //                 shape: BoxShape.circle,
+  //               ),
+  //               child: Icon(
+  //                 Icons.spa_rounded, // Material 3 wellness icon
+  //                 color: Theme.of(context).colorScheme.primary,
+  //                 size: 24,
+  //               ),
+  //             ),
+  //             const SizedBox(width: 16),
+  //             Expanded(
+  //               child: Column(
+  //                 crossAxisAlignment: CrossAxisAlignment.start,
+  //                 children: [
+  //                   Text(
+  //                     "BIOLOGICAL STATUS",
+  //                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
+  //                       letterSpacing: 1.5,
+  //                       fontWeight: FontWeight.bold,
+  //                       color: Theme.of(context).colorScheme.primary,
+  //                     ),
+  //                   ),
+  //                   const SizedBox(height: 4),
+  //                   Text(
+  //                     controller.currentPhase,
+  //                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
+  //                       fontWeight: FontWeight.bold,
+  //                     ),
+  //                   ),
+  //                 ],
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
+
+  Widget _buildPhaseInsightCard(
+    BuildContext context,
+    PeriodController controller,
+  ) {
+    final phase = controller.currentPhase;
+
+    IconData phaseIcon;
+    String phaseSubtitle;
+
+    switch (phase) {
+      case "Menstrual Phase":
+        phaseIcon = Icons.bedtime_rounded;
+        phaseSubtitle = "Time to rest and prioritize comfort.";
+        break;
+      case "Follicular Phase":
+        phaseIcon = Icons.wb_sunny_rounded;
+        phaseSubtitle = "Energy is rising. A great time for new goals!";
+        break;
+      case "Ovulatory Phase":
+        phaseIcon = Icons.auto_awesome;
+        phaseSubtitle = "You are at your biological peak glow.";
+        break;
+      case "Luteal Phase":
+        phaseIcon = Icons.self_improvement_rounded;
+        phaseSubtitle = "Be gentle with yourself. Focus inward.";
+        break;
+      default:
+        phaseIcon = Icons.spa_rounded;
+        phaseSubtitle = "Your personal wellness insight.";
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          // Increased padding from 20 to 26 for a more "airy" feel
+          padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 24),
+          decoration: BoxDecoration(
+            color: Theme.of(
+              context,
+            ).colorScheme.primaryContainer.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Slightly larger icon container to match increased padding
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  phaseIcon,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 26, // Increased from 24
+                ),
+              ),
+              const SizedBox(
+                width: 20,
+              ), // Increased spacing between icon and text
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "CURRENT BIOLOGY",
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        letterSpacing: 1.5,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 8), // Slightly larger gap
+                    Text(
+                      phase,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        height: 1.2,
+                        fontSize:
+                            22, // Slightly increased for a bolder presence
+                      ),
+                    ),
+                    const SizedBox(height: 6), // Slightly larger gap
+                    Text(
+                      "“$phaseSubtitle”",
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurfaceVariant.withOpacity(0.8),
+                        fontStyle: FontStyle.italic,
+                        height: 1.4, // More line height for better readability
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

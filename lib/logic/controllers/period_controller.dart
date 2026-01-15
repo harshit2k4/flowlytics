@@ -192,14 +192,14 @@ class PeriodController extends GetxController {
     refreshData();
   }
 
-  /// Calculated current biological phase based on cycle day and baseline
+  // Calculate current biological phase based on cycle day and baseline
   String get currentPhase {
     if (allLogs.isEmpty) return "Calibrating";
 
-    // 1. If period is active, always show Menstrual Phase
+    // If period is active, always show Menstrual Phase
     if (currentStatus == PeriodStatus.active) return "Menstrual Phase";
 
-    // 2. Normalize dates to midnight to get precise day count
+    // Normalize dates to midnight to get precise day count
     final lastStart = allLogs.first.startDate;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -208,7 +208,7 @@ class PeriodController extends GetxController {
     // Day 1 is the start date
     final dayOfCycle = today.difference(startDay).inDays + 1;
 
-    // 3. Scale phases based on baseline cycle (Default 28)
+    // Scale phases based on baseline cycle (default is 28)
     final int baseline = _settingsBox.get('baseline_cycle', defaultValue: 28);
 
     // Standard biological mapping scaled to user cycle length
