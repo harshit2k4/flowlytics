@@ -249,10 +249,132 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Widget _buildMLInsightCard(
+  //   BuildContext context,
+  //   PeriodController controller,
+  // ) {
+  //   bool isLearning = controller.allLogs.length < 3;
+  //   String modelName = isLearning
+  //       ? "Biological Average"
+  //       : "Personalized ML (Weighted)";
+  //   return Card(
+  //     elevation: 0,
+  //     color: Theme.of(context).colorScheme.surfaceContainerLow,
+  //     shape: RoundedRectangleBorder(
+  //       borderRadius: BorderRadius.circular(24),
+  //       side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+  //     ),
+  //     child: Padding(
+  //       padding: const EdgeInsets.all(24.0),
+  //       child: Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           Row(
+  //             children: [
+  //               Icon(
+  //                 Icons.bolt,
+  //                 size: 20,
+  //                 color: Theme.of(context).colorScheme.primary,
+  //               ),
+  //               const SizedBox(width: 8),
+  //               Text(
+  //                 "INTELLIGENCE",
+  //                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
+  //                   letterSpacing: 1.2,
+  //                   color: Theme.of(context).colorScheme.primary,
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //           const SizedBox(height: 16),
+  //           Text(
+  //             "Active Model: $modelName",
+  //             style: const TextStyle(fontWeight: FontWeight.bold),
+  //           ),
+  //           const SizedBox(height: 8),
+  //           Text(
+  //             isLearning
+  //                 ? "The engine is currently using global health averages. It will switch to Personalized ML after ${3 - controller.allLogs.length} more logs."
+  //                 : "The system is now using your unique history to provide higher accuracy predictions.",
+  //             style: Theme.of(context).textTheme.bodyMedium,
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
+
   Widget _buildMLInsightCard(
     BuildContext context,
     PeriodController controller,
   ) {
+    // Check if Navigator is Active (Highest Priority)
+    if (controller.isNavigatorActive.value) {
+      return Card(
+        elevation: 0,
+        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.auto_awesome,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    "BIO INTELLIGENCE",
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      letterSpacing: 1.8,
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Text(
+              //   controller.navigatorInsight.value,
+              //   style: const TextStyle(
+              //     fontWeight: FontWeight.w600,
+              //     fontSize: 16,
+              //   ),
+              // ),
+              // const SizedBox(height: 8),
+              // Text(
+              //   "Prediction has been adjusted based on your symptoms.",
+              //   style: Theme.of(context).textTheme.bodySmall,
+              // ),
+              RichText(
+                text: TextSpan(
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontSize: 15,
+                    height: 1.4, // Line height for readability
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  children: _buildProfessionalInsight(
+                    controller.navigatorInsight.value,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Default State (Learning or Standard)
     bool isLearning = controller.allLogs.length < 3;
     String modelName = isLearning
         ? "Biological Average"
@@ -278,7 +400,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  "INTELLIGENCE",
+                  "BIO INTELLIGENCE",
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
                     letterSpacing: 1.2,
                     color: Theme.of(context).colorScheme.primary,
@@ -294,8 +416,8 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 8),
             Text(
               isLearning
-                  ? "The engine is currently using global health averages. It will switch to Personalized ML after ${3 - controller.allLogs.length} more logs."
-                  : "The system is now using your unique history to provide higher accuracy predictions.",
+                  ? "The engine is using global averages. It will switch to Personalized ML after ${3 - controller.allLogs.length} more logs."
+                  : "The system is using your unique history for high-accuracy predictions.",
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
@@ -639,6 +761,27 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     });
+  }
+
+  List<TextSpan> _buildProfessionalInsight(String fullText) {
+    if (!fullText.contains(',')) return [TextSpan(text: fullText)];
+
+    // Splits "Hey [Name]," from the rest
+    final parts = fullText.split(', ');
+    return [
+      TextSpan(
+        text: parts[0] + ", ",
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+        ), // Bold the "Hey [Name],"
+      ),
+      TextSpan(
+        text: parts[1],
+        style: const TextStyle(
+          fontWeight: FontWeight.w400,
+        ), // Professional weight for the rest
+      ),
+    ];
   }
 
   void _openVibeSheet() {
