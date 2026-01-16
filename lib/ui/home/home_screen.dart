@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flowlytics/core/constants/app_strings.dart';
+import 'widgets/daily_checkin_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../logic/controllers/period_controller.dart';
@@ -51,6 +52,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   Obx(() => _buildPhaseInsightCard(context, controller)),
                   const SizedBox(height: 32),
                   Obx(() => _buildCircularProgress(context, controller)),
+                  const SizedBox(height: 32),
+                  _buildDailyVibeCard(context, controller),
                   const SizedBox(height: 40),
                   Obx(() => _buildSmartChipsSection(context, controller)),
                   const SizedBox(height: 32),
@@ -480,6 +483,169 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildDailyVibeCard(
+    BuildContext context,
+    PeriodController controller,
+  ) {
+    return Obx(() {
+      final hasLogged = controller.todayLog.value != null;
+      final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+      final colorScheme = Theme.of(context).colorScheme;
+
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutCubic,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            if (!hasLogged)
+              BoxShadow(
+                // For light mode use primary color for a subtle glow effect
+                color: colorScheme.primary.withOpacity(isDarkMode ? 0.15 : 0.2),
+                blurRadius: 30,
+                offset: const Offset(0, 12),
+                spreadRadius: -2,
+              ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(30),
+          child: BackdropFilter(
+            // Performance note:
+            // keeping blur slightly lower on the home card helps smoothness
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                // gradient for light and dark mode visiblity
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    colorScheme.surface.withOpacity(
+                      hasLogged ? 0.4 : (isDarkMode ? 0.8 : 0.95),
+                    ),
+                    colorScheme.surface.withOpacity(
+                      hasLogged ? 0.2 : (isDarkMode ? 0.6 : 0.85),
+                    ),
+                  ],
+                ),
+                border: Border.all(
+                  // Dynamically styled border
+                  // Stronger primary-tinted border in light mode,
+                  // subtle white in dark mode
+                  color: isDarkMode
+                      ? Colors.white.withOpacity(hasLogged ? 0.05 : 0.2)
+                      : colorScheme.primary.withOpacity(hasLogged ? 0.1 : 0.3),
+                  width: 1.5,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      // Icon container with soft glow
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: colorScheme.primary.withOpacity(0.1),
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          hasLogged
+                              ? Icons.favorite_rounded
+                              : Icons.add_reaction_rounded,
+                          color: colorScheme.primary,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              hasLogged
+                                  ? "Vibe Recorded"
+                                  : "How are you feeling?",
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: -0.5,
+                                    // Ensure text is punchy in light mode
+                                    color: colorScheme.onSurface.withOpacity(
+                                      0.9,
+                                    ),
+                                  ),
+                            ),
+                            Text(
+                              hasLogged
+                                  ? "Your biology is being mapped"
+                                  : "Tap to log your mood & symptoms",
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => _openVibeSheet(),
+                      style: FilledButton.styleFrom(
+                        // To create a visual distinction between
+                        // 'Call to action' and 'Edit'
+                        backgroundColor: hasLogged
+                            ? colorScheme.secondaryContainer.withOpacity(0.8)
+                            : colorScheme.primary,
+                        foregroundColor: hasLogged
+                            ? colorScheme.onSecondaryContainer
+                            : colorScheme.onPrimary,
+                        elevation: hasLogged ? 0 : 4,
+                        shadowColor: colorScheme.primary.withOpacity(0.4),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: Text(
+                        hasLogged ? "Edit Today's Log" : "Check-in Now",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  void _openVibeSheet() {
+    Get.bottomSheet(
+      const DailyCheckinSheet(),
+      isScrollControlled: true, // Crucial for DraggableScrollableSheet to work
+      backgroundColor: Colors.transparent,
     );
   }
 
