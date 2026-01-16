@@ -4,25 +4,28 @@ import 'package:get/get.dart';
 import 'package:hive/hive.dart';
 import '../../data/models/period_log.dart';
 import '../services/prediction_engine.dart';
+import '../services/navigator_engine.dart'; // Import the new Brain
 
 enum PeriodStatus { wellness, preparation, active }
 
 class PeriodController extends GetxController {
   final Box<PeriodLog> _logBox = Hive.box<PeriodLog>('period_box');
   late Box _settingsBox;
-
-  // Box for daily logs
   final Box<DailyLog> _dailyBox = Hive.box<DailyLog>('daily_box');
 
-  // Observable for today's check-in status
+  // Observables
   var todayLog = Rxn<DailyLog>();
-
   var allLogs = <PeriodLog>[].obs;
   var predictedStartDate = DateTime.now().obs;
   var userName = "Beautiful Girl".obs;
-
-  // check if its the first time app is launched
   var isFirstRun = true.obs;
+
+  // ML Observables (New)
+  var navigatorInsight = "".obs;
+  var isNavigatorActive = false.obs;
+
+  // Private store for the raw math prediction
+  DateTime? _baseMathPrediction;
 
   @override
   void onInit() {
@@ -38,11 +41,45 @@ class PeriodController extends GetxController {
       defaultValue: "Beautiful Girl",
     );
 
-    // Refresh global period data
-    refreshData();
+    // Whenever userName changes, run _runNavigator
+    ever(userName, (_) => _runNavigator());
 
-    // Refresh daily log status on startup
-    refreshDailyLog();
+    // Only run logic if onboarding is completed
+    if (!isFirstRun.value) {
+      refreshData();
+      refreshDailyLog();
+    }
+  }
+
+  // Called whenever data changes to recalculate everything
+  void refreshData() {
+    // Sort and heal history
+    var logs = _logBox.values.toList();
+    logs.sort((a, b) => b.startDate.compareTo(a.startDate));
+
+    for (int i = 0; i < logs.length; i++) {
+      if (i < logs.length - 1) {
+        int gap = logs[i].startDate.difference(logs[i + 1].startDate).inDays;
+        if (logs[i].cycleLength != gap) {
+          logs[i].cycleLength = gap;
+          logs[i].save();
+        }
+      } else if (logs[i].cycleLength != 0) {
+        logs[i].cycleLength = 0;
+        logs[i].save();
+      }
+    }
+    allLogs.assignAll(logs);
+
+    // Run Math Prediction (Math based algo)
+    final int baseline = _settingsBox.get('baseline_cycle', defaultValue: 28);
+    _baseMathPrediction = PredictionEngine.predictNextStart(allLogs, baseline);
+
+    // Default to math prediction
+    predictedStartDate.value = _baseMathPrediction!;
+
+    // Trigger Navigator (New algo)
+    _runNavigator();
   }
 
   void refreshDailyLog() {
@@ -59,22 +96,39 @@ class PeriodController extends GetxController {
     } catch (_) {
       todayLog.value = null;
     }
+
+    // Whenever we load a daily log, check if it changes the prediction
+    _runNavigator();
   }
 
-  /// Onboarding screen check
+  // Bridge between controller and ML engine
+  void _runNavigator() {
+    if (_baseMathPrediction == null) return;
+
+    final int baseline = _settingsBox.get('baseline_cycle', defaultValue: 28);
+
+    final result = NavigatorEngine.analyze(
+      mathPrediction: _baseMathPrediction!,
+      todayLog: todayLog.value,
+      history: allLogs,
+      baselineCycle: baseline,
+      userName: userName.value, // name goes here
+    );
+
+    predictedStartDate.value = result.adjustedDate;
+    navigatorInsight.value = result.insight;
+    isNavigatorActive.value = result.isShifted;
+  }
+
   Future<void> completeOnboarding({
     required String name,
     required DateTimeRange? lastPeriod,
     required int usualCycle,
   }) async {
-    // Save profile data
     await _settingsBox.put('user_name', name);
     userName.value = name;
-
-    // Save the baseline cycle for ML
     await _settingsBox.put('baseline_cycle', usualCycle);
 
-    // Save the initial period log if provided
     if (lastPeriod != null) {
       final newLog = PeriodLog(
         startDate: lastPeriod.start,
@@ -84,142 +138,18 @@ class PeriodController extends GetxController {
       await _logBox.add(newLog);
     }
 
-    // close db box
     await _settingsBox.put('has_completed_onboarding', false);
     isFirstRun.value = false;
 
+    // run full engine
     refreshData();
-  }
-
-  // PeriodStatus get currentStatus {
-  //   final now = DateTime(
-  //     DateTime.now().year,
-  //     DateTime.now().month,
-  //     DateTime.now().day,
-  //   );
-
-  //   // Check active period (Inclusive check)
-  //   if (allLogs.isNotEmpty) {
-  //     final last = allLogs.first;
-  //     final start = DateTime(
-  //       last.startDate.year,
-  //       last.startDate.month,
-  //       last.startDate.day,
-  //     );
-  //     final end = DateTime(
-  //       last.endDate.year,
-  //       last.endDate.month,
-  //       last.endDate.day,
-  //     );
-
-  //     if (!now.isBefore(start) && !now.isAfter(end)) {
-  //       return PeriodStatus.active;
-  //     }
-  //   }
-
-  //   // check preparation window
-  //   final pred = predictedStartDate.value;
-  //   final predictionDate = DateTime(pred.year, pred.month, pred.day);
-  //   final daysUntil = predictionDate.difference(now).inDays;
-
-  //   if (daysUntil >= 0 && daysUntil <= 3) {
-  //     return PeriodStatus.preparation;
-  //   }
-
-  //   return PeriodStatus.wellness;
-  // }
-
-  PeriodStatus get currentStatus {
-    final now = DateTime(
-      DateTime.now().year,
-      DateTime.now().month,
-      DateTime.now().day,
-    );
-
-    // Check active period
-    if (allLogs.isNotEmpty) {
-      final last = allLogs.first;
-      final start = DateTime(
-        last.startDate.year,
-        last.startDate.month,
-        last.startDate.day,
-      );
-      final end = DateTime(
-        last.endDate.year,
-        last.endDate.month,
-        last.endDate.day,
-      );
-
-      if (!now.isBefore(start) && !now.isAfter(end)) {
-        return PeriodStatus.active;
-      }
-    }
-
-    // check preparation/overdue window
-    final pred = predictedStartDate.value;
-    final predictionDate = DateTime(pred.year, pred.month, pred.day);
-    final daysUntil = predictionDate.difference(now).inDays;
-
-    // FIX: Change 'daysUntil >= 0' to 'daysUntil <= 3'
-    // If it's 3, 2, 1, 0, or -5 (overdue), it should show 'Preparation chips'
-    if (daysUntil <= 3) {
-      return PeriodStatus.preparation;
-    }
-
-    return PeriodStatus.wellness;
-  }
-
-  bool get isNearPeriod => currentStatus != PeriodStatus.wellness;
-
-  void refreshData() {
-    var logs = _logBox.values.toList();
-    logs.sort((a, b) => b.startDate.compareTo(a.startDate));
-
-    // Healing Engine: Recalculate all gaps
-    for (int i = 0; i < logs.length; i++) {
-      if (i < logs.length - 1) {
-        int gap = logs[i].startDate.difference(logs[i + 1].startDate).inDays;
-        if (logs[i].cycleLength != gap) {
-          logs[i].cycleLength = gap;
-          logs[i].save();
-        }
-      } else if (logs[i].cycleLength != 0) {
-        logs[i].cycleLength = 0;
-        logs[i].save();
-      }
-    }
-
-    allLogs.assignAll(logs);
-
-    // Pass the baseline cycle to the engine if it exists
-    final int baseline = _settingsBox.get('baseline_cycle', defaultValue: 28);
-    predictedStartDate.value = PredictionEngine.predictNextStart(
-      allLogs,
-      baseline,
-    );
+    refreshDailyLog();
   }
 
   Future<void> savePeriod(DateTime start, DateTime end) async {
     final newLog = PeriodLog(startDate: start, endDate: end, cycleLength: 0);
     await _logBox.add(newLog);
     refreshData();
-  }
-
-  void updateName(String name) {
-    userName.value = name;
-    _settingsBox.put('user_name', name);
-  }
-
-  Future<void> wipeData() async {
-    await _logBox.clear();
-    await _settingsBox.clear();
-    await _dailyBox.clear();
-
-    userName.value = "Beautiful Girl";
-    isFirstRun.value = true; // Resets gate on wipe
-    todayLog.value = null; // Clear the current observable
-    refreshData();
-    refreshDailyLog();
   }
 
   Future<void> saveDailyCheckIn({
@@ -241,43 +171,95 @@ class PeriodController extends GetxController {
       sleep: selectedSleep,
     );
 
-    // Update if exists, otherwise add
     if (todayLog.value != null) {
       await todayLog.value!.delete();
     }
 
     await _dailyBox.add(newLog);
-    refreshDailyLog(); // Refresh the reactive state
+    refreshDailyLog();
   }
 
-  // Calculate current biological phase based on cycle day and baseline
+  Future<void> wipeData() async {
+    await _logBox.clear();
+    await _settingsBox.clear();
+    await _dailyBox.clear();
+
+    userName.value = "Beautiful Girl";
+    isFirstRun.value = true;
+    todayLog.value = null;
+    isNavigatorActive.value = false;
+    navigatorInsight.value = "";
+
+    refreshData();
+    refreshDailyLog();
+  }
+
+  void updateName(String name) {
+    userName.value = name;
+    _settingsBox.put('user_name', name);
+
+    // Re-run the navigator so the insight string picks up the new name immediately
+    _runNavigator();
+  }
+
+  // UI Logic
+  PeriodStatus get currentStatus {
+    final now = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
+
+    if (allLogs.isNotEmpty) {
+      final last = allLogs.first;
+      final start = DateTime(
+        last.startDate.year,
+        last.startDate.month,
+        last.startDate.day,
+      );
+      final end = DateTime(
+        last.endDate.year,
+        last.endDate.month,
+        last.endDate.day,
+      );
+
+      if (!now.isBefore(start) && !now.isAfter(end)) {
+        return PeriodStatus.active;
+      }
+    }
+
+    final pred = predictedStartDate.value;
+    final predictionDate = DateTime(pred.year, pred.month, pred.day);
+    final daysUntil = predictionDate.difference(now).inDays;
+
+    if (daysUntil <= 3) {
+      return PeriodStatus.preparation;
+    }
+
+    return PeriodStatus.wellness;
+  }
+
+  bool get isNearPeriod => currentStatus != PeriodStatus.wellness;
+
   String get currentPhase {
     if (allLogs.isEmpty) return "Calibrating";
-
-    // If period is active, always show Menstrual Phase
     if (currentStatus == PeriodStatus.active) return "Menstrual Phase";
 
-    // Normalize dates to midnight to get precise day count
     final lastStart = allLogs.first.startDate;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final startDay = DateTime(lastStart.year, lastStart.month, lastStart.day);
 
-    // Day 1 is the start date
     final dayOfCycle = today.difference(startDay).inDays + 1;
-
-    // Scale phases based on baseline cycle (default is 28)
     final int baseline = _settingsBox.get('baseline_cycle', defaultValue: 28);
 
-    // Standard biological mapping scaled to user cycle length
-    if (dayOfCycle <= 5) {
+    if (dayOfCycle <= 5)
       return "Menstrual Phase";
-    } else if (dayOfCycle <= (baseline / 2).round() - 2) {
+    else if (dayOfCycle <= (baseline / 2).round() - 2)
       return "Follicular Phase";
-    } else if (dayOfCycle <= (baseline / 2).round() + 2) {
+    else if (dayOfCycle <= (baseline / 2).round() + 2)
       return "Ovulatory Phase";
-    } else {
+    else
       return "Luteal Phase";
-    }
   }
 }
