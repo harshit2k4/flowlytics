@@ -1,3 +1,4 @@
+import 'package:flowlytics/data/models/daily_log.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
@@ -9,6 +10,12 @@ enum PeriodStatus { wellness, preparation, active }
 class PeriodController extends GetxController {
   final Box<PeriodLog> _logBox = Hive.box<PeriodLog>('period_box');
   late Box _settingsBox;
+
+  // Box for daily logs
+  final Box<DailyLog> _dailyBox = Hive.box<DailyLog>('daily_box');
+
+  // Observable for today's check-in status
+  var todayLog = Rxn<DailyLog>();
 
   var allLogs = <PeriodLog>[].obs;
   var predictedStartDate = DateTime.now().obs;
@@ -22,17 +29,36 @@ class PeriodController extends GetxController {
     super.onInit();
     _settingsBox = Hive.box('settings_box');
 
-    // Check if onboarding was ever completed
     isFirstRun.value = _settingsBox.get(
       'has_completed_onboarding',
       defaultValue: true,
     );
-
     userName.value = _settingsBox.get(
       'user_name',
       defaultValue: "Beautiful Girl",
     );
+
+    // Refresh global period data
     refreshData();
+
+    // Refresh daily log status on startup
+    refreshDailyLog();
+  }
+
+  void refreshDailyLog() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    try {
+      todayLog.value = _dailyBox.values.firstWhere(
+        (log) =>
+            log.date.year == today.year &&
+            log.date.month == today.month &&
+            log.date.day == today.day,
+      );
+    } catch (_) {
+      todayLog.value = null;
+    }
   }
 
   /// Onboarding screen check
@@ -187,9 +213,41 @@ class PeriodController extends GetxController {
   Future<void> wipeData() async {
     await _logBox.clear();
     await _settingsBox.clear();
+    await _dailyBox.clear();
+
     userName.value = "Beautiful Girl";
     isFirstRun.value = true; // Resets gate on wipe
+    todayLog.value = null; // Clear the current observable
     refreshData();
+    refreshDailyLog();
+  }
+
+  Future<void> saveDailyCheckIn({
+    required List<String> selectedMoods,
+    required List<String> selectedPhysical,
+    required List<String> selectedSkin,
+    required List<String> selectedFlow,
+    required List<String> selectedSleep,
+  }) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final newLog = DailyLog(
+      date: today,
+      moods: selectedMoods,
+      physical: selectedPhysical,
+      skin: selectedSkin,
+      flow: selectedFlow,
+      sleep: selectedSleep,
+    );
+
+    // Update if exists, otherwise add
+    if (todayLog.value != null) {
+      await todayLog.value!.delete();
+    }
+
+    await _dailyBox.add(newLog);
+    refreshDailyLog(); // Refresh the reactive state
   }
 
   // Calculate current biological phase based on cycle day and baseline

@@ -1,3 +1,4 @@
+import 'package:flowlytics/data/models/daily_log.dart';
 import 'package:flowlytics/logic/controllers/period_controller.dart';
 import 'package:flowlytics/ui/onboarding/onboarding_screen.dart';
 import 'package:flutter/material.dart';
@@ -10,8 +11,12 @@ import 'ui/nav_wrapper.dart';
 void main() async {
   // init hive
   await Hive.initFlutter();
-  // Register the generated adapter
+  // Register period log model adapter
   Hive.registerAdapter(PeriodLogAdapter());
+  // Register daily log model adapter
+  Hive.registerAdapter(DailyLogAdapter());
+  // Open box of daily log
+  await Hive.openBox<DailyLog>('daily_box');
   // Open the box to store logs
   await Hive.openBox<PeriodLog>('period_box');
   // Open the box to store settings (Name, Onboarding status, etc.)

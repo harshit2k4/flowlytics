@@ -17,4 +17,50 @@ class AppStrings {
         return "Your body is a complex and beautiful system, always working to keep you healthy and balanced.";
     }
   }
+
+  // Mood Categories
+  static const List<String> moods = [
+    "Energetic",
+    "Happy",
+    "Calm",
+    "Sensitive",
+    "Anxious",
+    "Tired",
+  ];
+
+  // Physical Symptoms
+  static const List<String> physical = [
+    "Cramps",
+    "Bloating",
+    "Headache",
+    "Backache",
+    "Tender",
+    "Normal",
+  ];
+
+  // Skin States
+  static const List<String> skin = [
+    "Clear",
+    "Glowing",
+    "Oily",
+    "Dry",
+    "Breakouts",
+  ];
+
+  // Discharge or Flow
+  static const List<String> flow = [
+    "None",
+    "Light",
+    "Medium",
+    "Heavy",
+    "Spotting",
+  ];
+
+  // Sleep Quality
+  static const List<String> sleep = [
+    "Deep Sleep",
+    "Restless",
+    "Insomnia",
+    "Vivid Dreams",
+  ];
 }
