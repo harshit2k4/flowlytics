@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flowlytics/core/constants/app_strings.dart';
+import 'package:flowlytics/ui/pages/calendar_page.dart';
 import 'widgets/daily_checkin_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -32,6 +33,16 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             actions: [
+              // calendar view
+              Padding(
+                padding: const EdgeInsets.only(right: 2.0),
+                child: IconButton(
+                  icon: const Icon(Icons.calendar_month_rounded),
+                  onPressed: () => Get.to(() => const CalendarPage()),
+                  tooltip: "View History",
+                ),
+              ),
+              // notification view
               Padding(
                 padding: const EdgeInsets.only(right: 12.0),
                 child: IconButton(
