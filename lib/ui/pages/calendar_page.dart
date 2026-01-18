@@ -371,7 +371,9 @@ class _CalendarPageState extends State<CalendarPage> {
         ),
       ),
       onDismissed: (direction) async {
-        // SIMPLIFIED GLASS SNACKBAR
+        // delete the selected cycle
+        await controller.deletePeriodLog(log);
+        // Simplified snackbar with glassmorphic design
         Get.rawSnackbar(
           messageText: Center(
             child: Text(

@@ -262,4 +262,21 @@ class PeriodController extends GetxController {
     else
       return "Luteal Phase";
   }
+
+  Future<void> deletePeriodLog(PeriodLog log) async {
+    // 1. Delete from Hive
+    // Since PeriodLog extends HiveObject, it knows its own key.
+    await log.delete();
+
+    // 2. Recalibrate the entire System
+    // This will:
+    // - Re-fetch the list from Hive (now missing the deleted log)
+    // - Re-sort them (just in case)
+    // - Re-calculate 'cycleLength' for the remaining logs (fixing gaps)
+    // - Re-run PredictionEngine (Math)
+    // - Re-run NavigatorEngine (ML Insight)
+    refreshData();
+
+    // Now the UI updates automatically via Obx variables
+  }
 }
