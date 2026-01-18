@@ -49,6 +49,9 @@ class PeriodController extends GetxController {
       refreshData();
       refreshDailyLog();
     }
+
+    // populate mock data (remove before sending to production)
+    injectTestData();
   }
 
   // Called whenever data changes to recalculate everything
@@ -278,5 +281,88 @@ class PeriodController extends GetxController {
     refreshData();
 
     // Now the UI updates automatically via Obx variables
+  }
+
+  // Mock data for testing purpose only (remove before applying to production)
+  /// Populates the database with a dummy dataset of 12 records.
+  /// Designed to test UI pagination (Show More), ML Weighted Mean reliability,
+  /// and biological anomaly handling.
+  Future<void> injectTestData() async {
+    // Purge existing data for a clean test environment
+    await _logBox.clear();
+    await _dailyBox.clear();
+
+    final DateTime now = DateTime.now();
+    final DateTime todayMidnight = DateTime(now.year, now.month, now.day);
+
+    // --- CASE 1-10: THE LONG-TERM HISTORY (PAGINATION & ML STABILITY) ---
+    // Create a year's worth of data.
+    // Notice the subtle 'Drift': older cycles are 30 days, recent ones are 28.
+    // This tests if the ML correctly prioritizes the recent 28-day trend.
+    List<PeriodLog> historicalLogs = [];
+
+    // Generating 10 stable logs moving backwards in time
+    for (int i = 10; i >= 1; i--) {
+      // Logic: Older cycles (i > 5) are 30 days apart. Recent (i <= 5) are 28.
+      int cycleGap = (i > 5) ? 30 : 28;
+      int daysAgo = i * cycleGap;
+
+      historicalLogs.add(
+        PeriodLog(
+          startDate: todayMidnight.subtract(Duration(days: daysAgo + 33)),
+          endDate: todayMidnight.subtract(Duration(days: daysAgo + 29)),
+        ),
+      );
+    }
+
+    for (var log in historicalLogs) {
+      await _logBox.add(log);
+    }
+
+    // --- CASE 11: THE "RECENT STABLE" LOG ---
+    // This is the current reference point for the 'Home' screen cycle day.
+    await _logBox.add(
+      PeriodLog(
+        startDate: todayMidnight.subtract(const Duration(days: 26)),
+        endDate: todayMidnight.subtract(const Duration(days: 22)),
+      ),
+    );
+
+    // --- CASE 12: THE "ANOMALY" (DELETION & RE-CALIBRATION TEST) ---
+    // An irregular, short cycle (only 10 days since the last one).
+    // This will trigger 'Case 12' at the top of the list.
+    // TEST: Delete this to see the "Show More" button shift and ML heal.
+    await _logBox.add(
+      PeriodLog(
+        startDate: todayMidnight.subtract(const Duration(days: 10)),
+        endDate: todayMidnight.subtract(const Duration(days: 7)),
+      ),
+    );
+
+    // ML Model trigger
+    // Applied 'Spotting' log for today to verify NavigatorEngine overrides.
+    await _dailyBox.add(
+      DailyLog(
+        date: todayMidnight,
+        flow: ["Spotting"],
+        moods: ["Sensitive"],
+        physical: ["Cramps", "Bloating"],
+      ),
+    );
+
+    // App configs
+    await _settingsBox.put('baseline_cycle', 28);
+    await _settingsBox.put('user_name', "Alpha Tester");
+    await _settingsBox.put('has_completed_onboarding', false);
+
+    userName.value = "Test Mode"; // test user
+    isFirstRun.value = false;
+
+    // Refresh all systems
+    refreshData();
+    refreshDailyLog();
+
+    debugPrint("Test data loaded");
+    debugPrint("Total Logs: ${_logBox.length} (Pagination active)");
   }
 }
