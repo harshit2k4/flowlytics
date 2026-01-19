@@ -1,4 +1,5 @@
 import 'package:flowlytics/data/models/daily_log.dart';
+import 'package:flowlytics/logic/services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
@@ -48,14 +49,22 @@ class PeriodController extends GetxController {
     if (!isFirstRun.value) {
       refreshData();
       refreshDailyLog();
+      updateCycleReminder();
     }
 
     // populate mock data (remove before sending to production)
-    injectTestData();
+    // injectTestData();
   }
 
   // Called whenever data changes to recalculate everything
   void refreshData() {
+    // If no logs, set default and stop
+    if (_logBox.isEmpty) {
+      allLogs.clear();
+      predictedStartDate.value = DateTime.now().add(const Duration(days: 28));
+      return;
+    }
+
     // Sort and heal history
     var logs = _logBox.values.toList();
     logs.sort((a, b) => b.startDate.compareTo(a.startDate));
@@ -83,9 +92,18 @@ class PeriodController extends GetxController {
 
     // Trigger Navigator (New algo)
     _runNavigator();
+
+    // schedule reminder
+    updateCycleReminder();
   }
 
   void refreshDailyLog() {
+    // Safety Guard: If no period logs, don't try to run navigator logic
+    if (_logBox.isEmpty) {
+      todayLog.value = null;
+      return;
+    }
+
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
@@ -141,6 +159,7 @@ class PeriodController extends GetxController {
       await _logBox.add(newLog);
     }
 
+    // Set DB flag to false (meaning onboarding is NOT needed anymore)
     await _settingsBox.put('has_completed_onboarding', false);
     isFirstRun.value = false;
 
@@ -195,6 +214,7 @@ class PeriodController extends GetxController {
 
     refreshData();
     refreshDailyLog();
+    Get.offAllNamed('/');
   }
 
   void updateName(String name) {
@@ -364,5 +384,51 @@ class PeriodController extends GetxController {
 
     debugPrint("Test data loaded");
     debugPrint("Total Logs: ${_logBox.length} (Pagination active)");
+  }
+
+  // scheduling notifications
+  void updateCycleReminder() {
+    // no notification implementation for non mobile devices
+    if (!GetPlatform.isAndroid && !GetPlatform.isIOS) return;
+
+    if (allLogs.isEmpty) {
+      // There will be no logs if user skipped date entry in onboarding
+      debugPrint("No period logs found. Skipping notification scheduling.");
+      return;
+    }
+
+    final reminderDate = predictedStartDate.value.subtract(
+      const Duration(days: 2),
+    );
+
+    // final scheduledTime = DateTime(
+    //   reminderDate.year,
+    //   reminderDate.month,
+    //   reminderDate.day - 2, // remove -2
+    //   22, // change to 8
+    //   0,
+    // );
+
+    // debugPrint("LOG: Notification set for: ${scheduledTime.toString()}");
+
+    final scheduledTime = DateTime(
+      predictedStartDate.value.year,
+      predictedStartDate.value.month,
+      predictedStartDate.value.day - 2,
+      9,
+      0,
+    );
+
+    debugPrint("LOG: Notification set for: ${scheduledTime.toString()}");
+
+    if (scheduledTime.isAfter(DateTime.now())) {
+      NotificationService().scheduleNotification(
+        id: 101,
+        title: "Flowlytics Reminder",
+        body: "Your period is predicted to start in 2 days.",
+        scheduledDate: scheduledTime,
+      );
+      debugPrint("Notification scheduled for: $scheduledTime");
+    }
   }
 }
