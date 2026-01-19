@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flowlytics/ui/notifications/notification_permission_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -90,17 +91,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _finishOnboarding() {
-    controller.completeOnboarding(
-      name: _name.isEmpty ? "Beautiful Girl" : _name,
-      lastPeriod: _lastPeriod,
-      usualCycle: _usualCycle,
+    // controller.completeOnboarding(
+    //   name: _name.isEmpty ? "Beautiful Girl" : _name,
+    //   lastPeriod: _lastPeriod,
+    //   usualCycle: _usualCycle,
+    // );
+    Get.to(
+      () => NotificationPermissionScreen(
+        name: _name.isEmpty ? "Beautiful Girl" : _name,
+        lastPeriod: _lastPeriod,
+        usualCycle: _usualCycle,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false, // Prevents the app from exiting
+      canPop:
+          _currentPage == 0, // Prevents the app from exiting from other screens
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         if (_currentPage > 0) {
