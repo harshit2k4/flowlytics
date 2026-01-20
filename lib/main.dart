@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flowlytics/data/models/daily_log.dart';
 import 'package:flowlytics/logic/controllers/period_controller.dart';
+import 'package:flowlytics/logic/services/notification_service.dart';
 import 'package:flowlytics/ui/onboarding/onboarding_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -9,6 +12,14 @@ import 'core/theme/app_theme.dart';
 import 'ui/nav_wrapper.dart';
 
 void main() async {
+  // init native bridge
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // init notification service for mobile devices only
+  if (Platform.isAndroid || Platform.isIOS) {
+    await NotificationService().init();
+  }
+
   // init hive
   await Hive.initFlutter();
   // Register period log model adapter
