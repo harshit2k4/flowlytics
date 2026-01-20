@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flowlytics/data/models/daily_log.dart';
+import 'package:flowlytics/logic/controllers/diagnostic_controller.dart';
 import 'package:flowlytics/logic/controllers/period_controller.dart';
 import 'package:flowlytics/logic/services/notification_service.dart';
 import 'package:flowlytics/ui/onboarding/onboarding_screen.dart';
@@ -35,6 +36,11 @@ void main() async {
 
   // Initialize the controller
   final controller = Get.put(PeriodController());
+
+  // init controllers globally
+  Get.put(PeriodController());
+  // This keeps the diagnostic state alive app-wide
+  Get.put(DiagnosticController());
 
   runApp(const MyApp());
 }
