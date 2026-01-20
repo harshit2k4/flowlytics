@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flowlytics/core/constants/app_strings.dart';
+import 'package:flowlytics/ui/insights/insights_screen.dart';
 import 'package:flowlytics/ui/pages/calendar_page.dart';
 import 'widgets/daily_checkin_sheet.dart';
 import 'package:flutter/material.dart';
@@ -46,8 +47,10 @@ class _HomeScreenState extends State<HomeScreen> {
               Padding(
                 padding: const EdgeInsets.only(right: 12.0),
                 child: IconButton(
-                  onPressed: () {},
+                  // Go to notification dashboard
+                  onPressed: () => Get.to(() => const InsightsScreen()),
                   icon: const Icon(Icons.notifications_none_rounded),
+                  tooltip: "Notification Dashboard",
                 ),
               ),
             ],

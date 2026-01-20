@@ -63,4 +63,17 @@ class AppStrings {
     "Insomnia",
     "Vivid Dreams",
   ];
+
+  // notification page strings
+  // Inside class AppStrings
+  static String getTimeBasedGreeting(String name) {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return "Good Morning, $name";
+    if (hour < 17) return "Good Afternoon, $name";
+    return "Good Evening, $name";
+  }
+
+  static const String systemCheckTitle = "Guardian System Check";
+  static const String systemCheckBody =
+      "Flowlytics is awake and watching the clock! Your next reminder is synced.";
 }
