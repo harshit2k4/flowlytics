@@ -98,6 +98,7 @@ class DiagnosticController extends GetxController with WidgetsBindingObserver {
       body:
           "Hi ${userName.split(" ")[0]}! Your notification engine is running perfectly.",
       scheduledDate: DateTime.now().add(const Duration(seconds: 15)),
+      payload: 'diagnostic_test',
     );
 
     _progressTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {

@@ -5,6 +5,7 @@ import 'package:flowlytics/logic/controllers/diagnostic_controller.dart';
 import 'package:flowlytics/logic/controllers/period_controller.dart';
 import 'package:flowlytics/logic/services/notification_service.dart';
 import 'package:flowlytics/ui/onboarding/onboarding_screen.dart';
+import 'package:flowlytics/logic/controllers/navigation_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -37,10 +38,15 @@ void main() async {
   // Initialize the controller
   final controller = Get.put(PeriodController());
 
-  // init controllers globally
+  // Register all controllers globally on app start
+  Get.put(NavigationController());
   Get.put(PeriodController());
-  // This keeps the diagnostic state alive app-wide
   Get.put(DiagnosticController());
+
+  // init NotificationService
+  if (Platform.isAndroid || Platform.isIOS) {
+    await NotificationService().init();
+  }
 
   runApp(const MyApp());
 }

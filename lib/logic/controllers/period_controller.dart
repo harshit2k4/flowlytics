@@ -427,6 +427,7 @@ class PeriodController extends GetxController {
         title: "Flowlytics Reminder",
         body: "Your period is predicted to start in 2 days.",
         scheduledDate: scheduledTime,
+        payload: 'period_reminder',
       );
       debugPrint("Notification scheduled for: $scheduledTime");
     }
