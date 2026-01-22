@@ -5,6 +5,7 @@ import 'package:flowlytics/logic/controllers/diagnostic_controller.dart';
 import 'package:flowlytics/logic/controllers/period_controller.dart';
 import 'package:flowlytics/logic/controllers/security_controller.dart';
 import 'package:flowlytics/logic/services/notification_service.dart';
+import 'package:flowlytics/logic/services/security_guard.dart';
 import 'package:flowlytics/ui/onboarding/onboarding_screen.dart';
 import 'package:flowlytics/logic/controllers/navigation_controller.dart';
 import 'package:flutter/material.dart';
@@ -40,15 +41,23 @@ void main() async {
   final controller = Get.put(PeriodController());
 
   // Register all controllers globally on app start
-  Get.put(NavigationController());
+  // Get.put(NavigationController());
+  // Get.put(PeriodController());
+  // Get.put(DiagnosticController());
+  // Get.put(SecurityController());
+
+  // Register all controllers globally
+  // This should be the first controller to be initialized
   Get.put(PeriodController());
+
+  Get.put(NavigationController());
   Get.put(DiagnosticController());
-  Get.put(SecurityController());
+  Get.put(SecurityController()); // Security must be ready before App runs
 
   // init NotificationService
-  if (Platform.isAndroid || Platform.isIOS) {
-    await NotificationService().init();
-  }
+  // if (Platform.isAndroid || Platform.isIOS) {
+  //   await NotificationService().init();
+  // }
 
   runApp(const MyApp());
 }
@@ -66,6 +75,10 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
+      // trigger security screen (if available) first before any screen shows
+      builder: (context, child) {
+        return SecurityGuard(child: child);
+      },
       home: Obx(() {
         if (controller.isFirstRun.value) {
           return const OnboardingScreen();
