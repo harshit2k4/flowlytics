@@ -1,4 +1,5 @@
 import 'package:flowlytics/data/models/daily_log.dart';
+import 'package:flowlytics/logic/controllers/security_controller.dart';
 import 'package:flowlytics/logic/services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -206,11 +207,21 @@ class PeriodController extends GetxController {
     await _settingsBox.clear();
     await _dailyBox.clear();
 
+    final securityController = Get.find<SecurityController>();
+    await securityController.resetSecurity();
+
     userName.value = "Beautiful Girl";
     isFirstRun.value = true;
     todayLog.value = null;
+    allLogs.clear();
     isNavigatorActive.value = false;
     navigatorInsight.value = "";
+
+    await _settingsBox.put('user_name', "Beautiful Girl");
+    await _settingsBox.put(
+      'has_completed_onboarding',
+      false,
+    ); // Or false if you want onboarding again
 
     refreshData();
     refreshDailyLog();
@@ -445,5 +456,31 @@ class PeriodController extends GetxController {
     if (allLogs.isEmpty) return "CALIBRATING";
     if (allLogs.length < 3) return "LEARNING";
     return "OPTIMIZED";
+  }
+
+  // update username in me screen
+  void updateUserName(String newName) {
+    if (newName.trim().isNotEmpty) {
+      userName.value = newName.trim();
+      _settingsBox.put('user_name', userName.value);
+    }
+  }
+
+  // wipe all data (alternative of wipedata())
+  Future<void> wipeAllData() async {
+    // Clear Biological Data
+    await _logBox.clear();
+    await _dailyBox.clear();
+    allLogs.clear();
+    todayLog.value = null;
+
+    // Clear Security Data
+    // Fetch the SecurityController and tell it to reset
+    final securityController = Get.find<SecurityController>();
+    await securityController.resetSecurity();
+
+    // Reset user info
+    userName.value = "Beautiful Girl";
+    await _settingsBox.put('user_name', "Beautiful Girl");
   }
 }

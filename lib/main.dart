@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flowlytics/data/models/daily_log.dart';
 import 'package:flowlytics/logic/controllers/diagnostic_controller.dart';
 import 'package:flowlytics/logic/controllers/period_controller.dart';
+import 'package:flowlytics/logic/controllers/security_controller.dart';
 import 'package:flowlytics/logic/services/notification_service.dart';
 import 'package:flowlytics/ui/onboarding/onboarding_screen.dart';
 import 'package:flowlytics/logic/controllers/navigation_controller.dart';
@@ -42,6 +43,7 @@ void main() async {
   Get.put(NavigationController());
   Get.put(PeriodController());
   Get.put(DiagnosticController());
+  Get.put(SecurityController());
 
   // init NotificationService
   if (Platform.isAndroid || Platform.isIOS) {
