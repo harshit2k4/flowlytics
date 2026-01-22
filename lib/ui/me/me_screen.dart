@@ -1,7 +1,10 @@
 import 'dart:ui';
+import 'package:flowlytics/ui/security/security_setup_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../logic/controllers/period_controller.dart';
+import '../../logic/controllers/security_controller.dart';
+import '../insights/insights_screen.dart';
 
 class MeScreen extends StatefulWidget {
   const MeScreen({super.key});
@@ -18,21 +21,27 @@ class _MeScreenState extends State<MeScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize controller with the saved name from Hive
     final controller = Get.find<PeriodController>();
     _nameController = TextEditingController(text: controller.userName.value);
   }
 
   @override
+  void dispose() {
+    _nameController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final controller = Get.find<PeriodController>();
+    final securityController = Get.find<SecurityController>();
 
     return Scaffold(
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
           SliverAppBar.large(
-            // Update title on the go
             title: Obx(
               () => Text(
                 controller.userName.value == "Beautiful Girl"
@@ -49,11 +58,18 @@ class _MeScreenState extends State<MeScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 20),
-                  _buildProfileHeader(context, controller),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 10),
 
+                  // HEADER (Avatar & Name)
+                  _buildProfileHeader(context, controller),
+
+                  const SizedBox(height: 32),
+
+                  // SYSTEM STATUS
+                  _buildSectionHeader("System Status"),
+                  const SizedBox(height: 12),
                   Obx(() {
                     bool isMLActive = controller.allLogs.length >= 3;
                     return Row(
@@ -79,8 +95,158 @@ class _MeScreenState extends State<MeScreen> {
                     );
                   }),
 
+                  const SizedBox(height: 32),
+
+                  // PREFERENCES
+                  _buildSectionHeader("Preferences"),
+                  _buildSettingsGroup(context, [
+                    _buildTile(
+                      context,
+                      Icons.notifications_active_outlined,
+                      "Notifications",
+                      "Diagnostic & Reminders",
+                      () => Get.to(() => const InsightsScreen()),
+                    ),
+                  ]),
+
+                  const SizedBox(height: 20),
+
+                  // PRIVACY & SECURITY
+                  _buildSectionHeader("Privacy & Security"),
+                  _buildSettingsGroup(context, [
+                    Obx(
+                      () => _buildTile(
+                        context,
+                        Icons.lock_person_outlined,
+                        "App Lock",
+                        securityController.isLockEnabled.value
+                            ? "Secured"
+                            : "Protect your data",
+                        // () => Get.snackbar(
+                        //   "App Lock",
+                        //   "PIN Setup Screen coming next!",
+                        () => Get.to(() => const SecuritySetupScreen()),
+                        trailing: securityController.isLockEnabled.value
+                            ? const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                                size: 20,
+                              )
+                            : null,
+                      ),
+                    ),
+                  ]),
+
+                  const SizedBox(height: 20),
+
+                  // BACKUP (Import/Export)
+                  _buildSectionHeader("Backup"),
+                  _buildSettingsGroup(context, [
+                    _buildTile(
+                      context,
+                      Icons.upload_file_rounded,
+                      "Export Data",
+                      "Save encrypted .json",
+                      () => Get.snackbar("Backup", "Export logic coming soon"),
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    _buildTile(
+                      context,
+                      Icons.file_download_rounded,
+                      "Import Data",
+                      "Restore from file",
+                      () => Get.snackbar("Backup", "Import logic coming soon"),
+                    ),
+                  ]),
+
+                  const SizedBox(height: 20),
+
+                  // INFORMATION
+                  _buildSectionHeader("Information"),
+                  _buildSettingsGroup(context, [
+                    _buildTile(
+                      context,
+                      Icons.info_outline_rounded,
+                      "Software Info",
+                      "Version & Details",
+                      () => _showSoftwareInfo(context),
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    _buildTile(
+                      context,
+                      Icons.description_outlined,
+                      "OSS Licenses",
+                      "Open source credits",
+                      // Flutter license page
+                      () => showLicensePage(
+                        context: context,
+                        applicationName: "Flowlytics",
+                        applicationVersion: "0.1.0",
+                        applicationIcon: const Icon(
+                          Icons.water_drop_rounded,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
+                  ]),
+
+                  const SizedBox(height: 32),
+
+                  // Wipe data zone
+                  _buildSectionHeader("Danger Zone", color: Colors.red),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.red.withOpacity(0.1)),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 4,
+                      ),
+                      leading: const Icon(
+                        Icons.delete_forever_outlined,
+                        color: Colors.red,
+                      ),
+                      title: const Text(
+                        "Wipe Everything",
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        "Permanent deletion",
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      onTap: () => _showDeleteDialog(context, controller),
+                    ),
+                  ),
+
                   const SizedBox(height: 48),
-                  _buildDangerZone(context, controller),
+
+                  // FOOTER
+                  Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Text(
+                          "Made with ",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                        Icon(Icons.favorite, color: Colors.red, size: 16),
+                        Text(
+                          " by Someone special",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -91,6 +257,7 @@ class _MeScreenState extends State<MeScreen> {
     );
   }
 
+  // Header section
   Widget _buildProfileHeader(
     BuildContext context,
     PeriodController controller,
@@ -112,7 +279,7 @@ class _MeScreenState extends State<MeScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(width: 40),
+            const SizedBox(width: 40), // Balance the icon button
             _isEditing
                 ? Container(
                     constraints: const BoxConstraints(maxWidth: 200),
@@ -122,7 +289,6 @@ class _MeScreenState extends State<MeScreen> {
                       textAlign: TextAlign.center,
                       autofocus: true,
                       maxLength: 15,
-                      // Save on submit
                       onSubmitted: (val) {
                         controller.updateName(val);
                         setState(() => _isEditing = false);
@@ -154,7 +320,6 @@ class _MeScreenState extends State<MeScreen> {
             IconButton(
               onPressed: () {
                 if (_isEditing) {
-                  // If clicking Checkmark, save logic
                   controller.updateName(_nameController.text);
                 }
                 setState(() => _isEditing = !_isEditing);
@@ -171,6 +336,7 @@ class _MeScreenState extends State<MeScreen> {
     );
   }
 
+  // Info Card
   Widget _buildCompactInfo(
     BuildContext context,
     IconData icon,
@@ -202,33 +368,106 @@ class _MeScreenState extends State<MeScreen> {
     );
   }
 
-  Widget _buildDangerZone(BuildContext context, PeriodController controller) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Settings",
-          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+  Widget _buildSectionHeader(String title, {Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, bottom: 8),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.2,
+          color: color ?? Colors.grey.shade600,
         ),
-        const SizedBox(height: 16),
-        ListTile(
-          onTap: () => _showDeleteDialog(context, controller),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 8,
-          ),
-          tileColor: Colors.red.withOpacity(0.05),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          leading: const Icon(Icons.delete_forever_outlined, color: Colors.red),
-          title: const Text(
-            "Wipe All Data",
-            style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-          ),
-          trailing: const Icon(Icons.chevron_right, color: Colors.red),
+      ),
+    );
+  }
+
+  Widget _buildSettingsGroup(BuildContext context, List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildTile(
+    BuildContext context,
+    IconData icon,
+    String title,
+    String sub,
+    VoidCallback? onTap, {
+    Widget? trailing,
+  }) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          shape: BoxShape.circle,
         ),
-      ],
+        child: Icon(
+          icon,
+          size: 20,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(sub, style: const TextStyle(fontSize: 12)),
+      trailing:
+          trailing ??
+          const Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey),
+      onTap: onTap,
+    );
+  }
+
+  void _showSoftwareInfo(BuildContext context) {
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.water_drop_rounded, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            const Text(
+              "Flowlytics",
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+            ),
+            const Text(
+              "Version 0.1.0 (Stable)",
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              "Flowlytics is a self learning privacy-first periods tracker.\nYour data never leaves this device.",
+              textAlign: TextAlign.center,
+              style: TextStyle(height: 1.5),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Get.back(),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text("Close"),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -244,60 +483,29 @@ class _MeScreenState extends State<MeScreen> {
           TextButton(onPressed: () => Get.back(), child: const Text("Cancel")),
           TextButton(
             onPressed: () async {
-              // Invoke wipe function in periods controller
               await controller.wipeData();
 
-              // Reset local text field
+              // Reset local UI state
               setState(() {
                 _nameController.text = "Beautiful Girl";
                 _isEditing = false;
               });
 
               Get.back();
-              _showGlassySnackbar(context, "All data and settings wiped");
+              // Original snackbar logic
+              Get.rawSnackbar(
+                messageText: const Text(
+                  "All data wiped",
+                  style: TextStyle(color: Colors.white),
+                ),
+                backgroundColor: Colors.black.withOpacity(0.8),
+                borderRadius: 20,
+                margin: const EdgeInsets.all(20),
+              );
             },
             child: const Text("Wipe", style: TextStyle(color: Colors.red)),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showGlassySnackbar(BuildContext context, String message) {
-    Get.rawSnackbar(
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.transparent,
-      messageText: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.primaryContainer.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.check_circle_outline,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  message,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
