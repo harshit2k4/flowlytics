@@ -2,7 +2,6 @@
  * This is a stripped-down version of AppLock screen. 
  * It removes the "Back" button and "Setup" logic, strictly focusing on the Unlock and Cooldown UI.
  */
-
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -19,10 +18,13 @@ class GlobalLockScreen extends StatefulWidget {
 class _GlobalLockScreenState extends State<GlobalLockScreen> {
   final SecurityController _securityController = Get.find<SecurityController>();
   String _pin = "";
-  // Recovery mode state
+
+  // Recovery State
   bool _isRecovering = false;
   final TextEditingController _recoveryInputController =
       TextEditingController();
+  // Inline error state instead of Snackbar for foolproof visibility
+  String? _recoveryError;
 
   // Cooldown UI
   Timer? _cooldownTimer;
@@ -33,7 +35,7 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
     super.initState();
     _startCooldownListener();
 
-    // FIX: Only auto-trigger if the user has enabled biometrics in settings
+    // Only auto-trigger if enabled
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_securityController.useBiometrics.value) {
         _triggerBiometric();
@@ -42,8 +44,6 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
   }
 
   Future<void> _triggerBiometric() async {
-    // Logic is handled inside controller (checks for cooldown, enabled status, hardware)
-    // We just call it.
     await _securityController.authenticateUser();
   }
 
@@ -70,30 +70,35 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
     if (_pin.length < 6) setState(() => _pin += number);
 
     if (_pin.length == 6) {
-      // Small delay for UX feel
       Future.delayed(const Duration(milliseconds: 150), () {
         if (_securityController.verifyPin(_pin)) {
           setState(() => _pin = "");
-          // The overlay will automatically disappear because isLocked becomes false
         } else {
           setState(() => _pin = "");
-          // Haptic feedback could be added here
+          // Optional haptic feedback
         }
       });
     }
+  }
+
+  // Helper to cleanly reset recovery state
+  void _closeRecovery() {
+    setState(() {
+      _isRecovering = false;
+      _recoveryInputController.clear();
+      _recoveryError = null; // Clear error
+      FocusScope.of(context).unfocus();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    // Use a Scaffold with a transparent background so it overlays the app
-    // PopScope prevents Android back button from closing the app lock
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor:
-            colorScheme.surface, // Opaque background to hide app content
+        backgroundColor: colorScheme.surface,
         body: Stack(
           children: [
             _buildBackground(colorScheme),
@@ -107,6 +112,7 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
                           ? _buildRecoveryUI(colorScheme)
                           : _buildLockUI(colorScheme),
                     ),
+                    // Only show pad if NOT recovering
                     if (!_isRecovering) _buildNumericPad(colorScheme),
                   ],
                 ),
@@ -156,7 +162,13 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
         const SizedBox(height: 32),
 
         TextButton(
-          onPressed: () => setState(() => _isRecovering = true),
+          onPressed: () {
+            setState(() {
+              _isRecovering = true;
+              _recoveryInputController.clear();
+              _recoveryError = null;
+            });
+          },
           child: Text(
             "Forgot PIN?",
             style: TextStyle(
@@ -176,7 +188,7 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
         children: [
           const SizedBox(height: 60),
           IconButton(
-            onPressed: () => setState(() => _isRecovering = false),
+            onPressed: _closeRecovery,
             icon: const Icon(Icons.close),
             padding: EdgeInsets.zero,
             alignment: Alignment.centerLeft,
@@ -214,15 +226,51 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
               borderRadius: BorderRadius.circular(20),
+              // Highlight red if error
+              border: _recoveryError != null
+                  ? Border.all(color: Colors.red.withOpacity(0.5))
+                  : null,
             ),
             child: TextField(
+              // ValueKey ensures the TextField is totally replaced on rebuilds,
+              // breaking the connection to the OS keyboard buffer to stop text duplication.
+              key: const ValueKey("recovery_field"),
               controller: _recoveryInputController,
               decoration: const InputDecoration(
                 labelText: "Your Answer",
                 border: InputBorder.none,
               ),
+              onChanged: (_) {
+                if (_recoveryError != null)
+                  setState(() => _recoveryError = null);
+              },
             ),
           ),
+
+          // Inline Error Message
+          if (_recoveryError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12, left: 8),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: Colors.redAccent,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _recoveryError!,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           const SizedBox(height: 32),
           SizedBox(
             width: double.infinity,
@@ -232,20 +280,19 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
                 if (_securityController.verifyRecoveryAnswer(
                   _recoveryInputController.text,
                 )) {
-                  // Unlock successful.
-                  // Note: Do not force a PIN reset here because this is a quick unlock.
-                  // The user can go to settings to change it later.
                   FocusManager.instance.primaryFocus?.unfocus();
                   _recoveryInputController.clear();
                   setState(() {
                     _isRecovering = false;
                     _pin = "";
+                    _recoveryError = null;
                   });
                 } else {
-                  Get.rawSnackbar(
-                    message: "Incorrect Answer",
-                    backgroundColor: Colors.red.withOpacity(0.8),
-                  );
+                  // Clear immediately on error so old text doesn't persist
+                  _recoveryInputController.clear();
+                  setState(() {
+                    _recoveryError = "Incorrect Answer. Try again.";
+                  });
                 }
               },
               child: const Text("Unlock App"),
@@ -278,24 +325,30 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                // Biometric Toggle: Occupies space only if available/enabled
-                // to keep "0" centered, but renders no visible "grey square"
+                // LEFT SLOT: Biometrics
                 SizedBox(
                   width: 80,
                   height: 80,
                   child: Obx(() {
-                    if (!_securityController.canCheckBiometrics.value ||
-                        !_securityController.useBiometrics.value) {
-                      return const SizedBox.shrink();
-                    }
-                    return IconButton(
-                      onPressed: _displayCooldown > 0
-                          ? null
-                          : () => _triggerBiometric(),
-                      icon: Icon(
-                        Icons.fingerprint,
-                        size: 32,
-                        color: colorScheme.primary,
+                    bool visible =
+                        _securityController.canCheckBiometrics.value &&
+                        _securityController.useBiometrics.value;
+
+                    // Use Visibility to maintain layout size perfectly without drawing pixels
+                    return Visibility(
+                      visible: visible,
+                      maintainSize: true,
+                      maintainAnimation: true,
+                      maintainState: true,
+                      child: IconButton(
+                        onPressed: _displayCooldown > 0
+                            ? null
+                            : () => _securityController.authenticateUser(),
+                        icon: Icon(
+                          Icons.fingerprint,
+                          size: 32,
+                          color: colorScheme.primary,
+                        ),
                       ),
                     );
                   }),
@@ -303,6 +356,7 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
 
                 _buildNumBtn("0", colorScheme),
 
+                // RIGHT SLOT: Backspace
                 SizedBox(
                   width: 80,
                   height: 80,

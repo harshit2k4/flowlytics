@@ -33,7 +33,6 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
         : 'setup_pin';
     _startCooldownListener();
 
-    // AUTO-TRIGGER: Only if we are verifying an existing lock and biometrics are active
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_viewState == 'verify' && _securityController.useBiometrics.value) {
         _triggerBiometricVerify();
@@ -41,7 +40,6 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
     });
   }
 
-  // Triggers the standard verification
   Future<void> _triggerBiometricVerify() async {
     bool success = await _securityController.authenticateUser();
     if (success) {
@@ -67,45 +65,50 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
   }
 
   void _showGlassSnackBar(String message, {bool isError = false}) {
-    Get.rawSnackbar(
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.transparent,
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 60),
-      messageText: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: (isError ? Colors.red : Colors.white).withOpacity(0.12),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  isError ? Icons.error_outline : Icons.check_circle_outline,
-                  color: Colors.white,
-                  size: 22,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    message,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
+    // ScaffoldMessenger works better for embedded screens than Get.snackbar
+    // to ensure z-index correctness, but for consistency use Get.rawSnackbar
+    // with high priority.
+    if (Get.context != null) {
+      Get.rawSnackbar(
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.transparent,
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 60),
+        messageText: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: (isError ? Colors.red : Colors.white).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isError ? Icons.error_outline : Icons.check_circle_outline,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      message,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   void _onNumberPress(String number) {
@@ -341,8 +344,6 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
     );
   }
 
-  // --- UI REFINEMENTS ---
-
   Widget _buildNumericPad(ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
@@ -365,29 +366,35 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                // FIXED: This button now triggers VERIFY, not LINKING
+                // LEFT SLOT: Biometrics
                 SizedBox(
                   width: 80,
                   height: 80,
                   child: Obx(() {
-                    // Only show icon if we are in verify mode AND biometrics are active
-                    bool showIcon =
-                        _viewState == 'verify' &&
-                        _securityController.canCheckBiometrics.value &&
-                        _securityController.useBiometrics.value;
+                    // Accessing .value here tells GetX to watch this widget
+                    final canCheck =
+                        _securityController.canCheckBiometrics.value;
+                    final useBio = _securityController.useBiometrics.value;
 
-                    if (!showIcon) return const SizedBox.shrink();
+                    // Logic: Only show fingerprint icon if the app is in 'verify' mode
+                    // AND the hardware supports it AND the user enabled it.
+                    bool isVisible =
+                        (_viewState == 'verify') && canCheck && useBio;
 
-                    return IconButton(
-                      onPressed: _displayCooldown > 0
-                          ? null
-                          : () => _triggerBiometricVerify(),
-                      icon: Icon(
-                        Icons.fingerprint,
-                        color: _displayCooldown > 0
-                            ? Colors.grey
-                            : colorScheme.primary,
-                        size: 32,
+                    return Visibility(
+                      visible: isVisible,
+                      maintainSize: true,
+                      maintainAnimation: true,
+                      maintainState: true,
+                      child: IconButton(
+                        onPressed: _displayCooldown > 0
+                            ? null
+                            : () => _triggerBiometricVerify(),
+                        icon: Icon(
+                          Icons.fingerprint,
+                          size: 32,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                       ),
                     );
                   }),
@@ -395,6 +402,7 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
 
                 _buildNumBtn("0", colorScheme),
 
+                // RIGHT SLOT: Backspace
                 SizedBox(
                   width: 80,
                   height: 80,
@@ -459,6 +467,9 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
         border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.3)),
       ),
       child: TextField(
+        key: ValueKey(
+          label,
+        ), // Ensures fresh state for every unique field label
         controller: ctrl,
         decoration: InputDecoration(
           labelText: label,
@@ -529,12 +540,9 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
         ),
         const SizedBox(height: 40),
 
-        // NEW: Biometric Toggle Row
         Obx(() {
-          // Only show if hardware is supported
           if (!_securityController.canCheckBiometrics.value)
             return const SizedBox.shrink();
-
           return Container(
             margin: const EdgeInsets.only(bottom: 20),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -558,18 +566,14 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
               value: _securityController.useBiometrics.value,
               onChanged: (val) {
                 if (val) {
-                  // If turning ON, show disclaimer first
                   _showBiometricDisclaimer(colorScheme);
                 } else {
-                  // If turning OFF, just do it
                   _securityController.toggleBiometrics(false);
                 }
               },
             ),
           );
         }),
-
-        // Existing Info Box
         _buildInfoBox(
           "Facial ID and Fingerprint authentication are provided by your device. Flowlytics bears no responsibility for unauthorized access via system biometrics.",
           colorScheme,
@@ -619,7 +623,7 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
   void _showBiometricDisclaimer(ColorScheme colorScheme) {
     showDialog(
       context: context,
-      barrierDismissible: false, // Force them to choose
+      barrierDismissible: false,
       builder: (context) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
         child: Dialog(
@@ -656,7 +660,6 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () async {
-                          // Trigger a test scan
                           bool success = await _securityController
                               .authenticateUser(force: true);
                           if (success) {
