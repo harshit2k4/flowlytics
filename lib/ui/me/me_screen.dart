@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flowlytics/ui/security/security_setup_screen.dart';
+import 'package:flowlytics/ui/widgets/glass_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../logic/controllers/period_controller.dart';
@@ -483,24 +484,23 @@ class _MeScreenState extends State<MeScreen> {
           TextButton(onPressed: () => Get.back(), child: const Text("Cancel")),
           TextButton(
             onPressed: () async {
+              // Close the dialog first
+              Get.back();
+              // Perform the data wipe
               await controller.wipeData();
+              // Check if the widget is still in the tree before calling setState
+              if (!mounted) return;
 
-              // Reset local UI state
               setState(() {
                 _nameController.text = "Beautiful Girl";
                 _isEditing = false;
               });
 
-              Get.back();
-              // Original snackbar logic
-              Get.rawSnackbar(
-                messageText: const Text(
-                  "All data wiped",
-                  style: TextStyle(color: Colors.white),
-                ),
-                backgroundColor: Colors.black.withOpacity(0.8),
-                borderRadius: 20,
-                margin: const EdgeInsets.all(20),
+              // Use the global glassy snackbar
+              GlassSnackbar.show(
+                context,
+                "All data wiped",
+                icon: Icons.delete_sweep_rounded,
               );
             },
             child: const Text("Wipe", style: TextStyle(color: Colors.red)),
