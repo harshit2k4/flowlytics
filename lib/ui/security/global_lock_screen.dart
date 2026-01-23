@@ -32,6 +32,19 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
   void initState() {
     super.initState();
     _startCooldownListener();
+
+    // FIX: Only auto-trigger if the user has enabled biometrics in settings
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_securityController.useBiometrics.value) {
+        _triggerBiometric();
+      }
+    });
+  }
+
+  Future<void> _triggerBiometric() async {
+    // Logic is handled inside controller (checks for cooldown, enabled status, hardware)
+    // We just call it.
+    await _securityController.authenticateUser();
   }
 
   void _startCooldownListener() {
@@ -265,8 +278,31 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                const SizedBox(width: 80, height: 80), // Spacer
+                // Biometric Toggle: Occupies space only if available/enabled
+                // to keep "0" centered, but renders no visible "grey square"
+                SizedBox(
+                  width: 80,
+                  height: 80,
+                  child: Obx(() {
+                    if (!_securityController.canCheckBiometrics.value ||
+                        !_securityController.useBiometrics.value) {
+                      return const SizedBox.shrink();
+                    }
+                    return IconButton(
+                      onPressed: _displayCooldown > 0
+                          ? null
+                          : () => _triggerBiometric(),
+                      icon: Icon(
+                        Icons.fingerprint,
+                        size: 32,
+                        color: colorScheme.primary,
+                      ),
+                    );
+                  }),
+                ),
+
                 _buildNumBtn("0", colorScheme),
+
                 SizedBox(
                   width: 80,
                   height: 80,

@@ -1,22 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:local_auth/local_auth.dart'; // Import local_auth
 
 class SecurityController extends GetxController with WidgetsBindingObserver {
   final _settingsBox = Hive.box('settings_box');
+  final LocalAuthentication _auth = LocalAuthentication(); // Auth instance
 
   var isLocked = false.obs;
   var isLockEnabled = false.obs;
   var useBiometrics = false.obs;
   var failedAttempts = 0.obs;
 
+  // Hardware capabilities
+  var canCheckBiometrics = false.obs;
+
   // Cooldown Tracking
   var lockoutEndTime = Rxn<DateTime>();
 
   @override
-  void onInit() {
+  void onInit() async {
     super.onInit();
     WidgetsBinding.instance.addObserver(this);
 
@@ -30,14 +36,100 @@ class SecurityController extends GetxController with WidgetsBindingObserver {
     );
     failedAttempts.value = _settingsBox.get('failed_attempts', defaultValue: 0);
 
-    // PERSISTENCE: Load saved lockout time
+    // Load saved lockout time
     final savedTime = _settingsBox.get('lockout_end_time');
     if (savedTime != null) {
       lockoutEndTime.value = DateTime.parse(savedTime);
     }
 
+    // Check hardware support immediately
+    await _checkBiometricSupport();
+
     if (isLockEnabled.value) isLocked.value = true;
   }
+
+  // --- BIOMETRIC LOGIC ---
+
+  Future<void> _checkBiometricSupport() async {
+    try {
+      bool canCheck = await _auth.canCheckBiometrics;
+      bool isDeviceSupported = await _auth.isDeviceSupported();
+      canCheckBiometrics.value = canCheck && isDeviceSupported;
+    } catch (e) {
+      debugPrint("Biometric support check failed: $e");
+      canCheckBiometrics.value = false;
+    }
+  }
+
+  // Future<bool> authenticateUser() async {
+  //   // 1. Security Check: Don't allow biometrics if user is in cooldown
+  //   if (getRemainingCooldownSeconds() > 0) return false;
+
+  //   // 2. Hardware Check
+  //   if (!canCheckBiometrics.value || !useBiometrics.value) return false;
+
+  //   try {
+  //     final bool didAuthenticate = await _auth.authenticate(
+  //       localizedReason: 'Scan to unlock Flowlytics',
+  //       options: const AuthenticationOptions(
+  //         stickyAuth:
+  //             true, // Keeps prompt active if app goes background briefly
+  //         biometricOnly: true, // Don't allow device PIN (fallback to App PIN)
+  //       ),
+  //     );
+
+  //     if (didAuthenticate) {
+  //       _resetAttempts();
+  //       isLocked.value = false;
+  //       return true;
+  //     }
+  //   } on PlatformException catch (e) {
+  //     debugPrint("Auth Error: $e");
+  //     // If error (e.g. user canceled), we just return false and let them use PIN
+  //     return false;
+  //   }
+  //   return false;
+  // }
+
+  Future<bool> authenticateUser({bool force = false}) async {
+    // 1. Security Check: Never allow during cooldown
+    if (getRemainingCooldownSeconds() > 0) return false;
+
+    // 2. Hardware Check
+    if (!canCheckBiometrics.value) return false;
+
+    // 3. Preference Check:
+    // Respect user setting UNLESS we are forcing it for initial setup verification
+    if (!force && !useBiometrics.value) return false;
+
+    try {
+      final bool didAuthenticate = await _auth.authenticate(
+        localizedReason: 'Verify identity for Flowlytics',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+        ),
+      );
+
+      if (didAuthenticate) {
+        _resetAttempts();
+        // Unlock the app if we were at the global lock screen
+        if (isLocked.value) isLocked.value = false;
+        return true;
+      }
+    } catch (e) {
+      debugPrint("Biometric Auth Error: $e");
+      return false;
+    }
+    return false;
+  }
+
+  void toggleBiometrics(bool value) {
+    useBiometrics.value = value;
+    _settingsBox.put('use_biometrics', value);
+  }
+
+  // --- EXISTING LOGIC ---
 
   @override
   void onClose() {
@@ -93,7 +185,6 @@ class SecurityController extends GetxController with WidgetsBindingObserver {
     if (seconds > 0) {
       final end = DateTime.now().add(Duration(seconds: seconds));
       lockoutEndTime.value = end;
-      // PERSISTENCE: Save to Hive
       _settingsBox.put('lockout_end_time', end.toIso8601String());
     }
   }
@@ -132,6 +223,10 @@ class SecurityController extends GetxController with WidgetsBindingObserver {
     await _settingsBox.delete('security_question');
     await _settingsBox.delete('security_answer');
     await _settingsBox.put('is_lock_enabled', false);
+    // Also reset biometric preference
+    await _settingsBox.put('use_biometrics', false);
+    useBiometrics.value = false;
+
     isLockEnabled.value = false;
     isLocked.value = false;
     _resetAttempts();

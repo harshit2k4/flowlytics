@@ -32,6 +32,25 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
         ? 'verify'
         : 'setup_pin';
     _startCooldownListener();
+
+    // AUTO-TRIGGER: Only if we are verifying an existing lock and biometrics are active
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_viewState == 'verify' && _securityController.useBiometrics.value) {
+        _triggerBiometricVerify();
+      }
+    });
+  }
+
+  // Triggers the standard verification
+  Future<void> _triggerBiometricVerify() async {
+    bool success = await _securityController.authenticateUser();
+    if (success) {
+      setState(() {
+        _viewState = 'manage';
+        _pin = "";
+      });
+      _showGlassSnackBar("Identity Verified");
+    }
   }
 
   void _startCooldownListener() {
@@ -346,18 +365,36 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
+                // FIXED: This button now triggers VERIFY, not LINKING
                 SizedBox(
                   width: 80,
                   height: 80,
-                  child: IconButton(
-                    onPressed: () => _showBiometricDisclaimer(colorScheme),
-                    icon: Icon(
-                      Icons.fingerprint,
-                      color: colorScheme.primary.withOpacity(0.7),
-                    ),
-                  ),
+                  child: Obx(() {
+                    // Only show icon if we are in verify mode AND biometrics are active
+                    bool showIcon =
+                        _viewState == 'verify' &&
+                        _securityController.canCheckBiometrics.value &&
+                        _securityController.useBiometrics.value;
+
+                    if (!showIcon) return const SizedBox.shrink();
+
+                    return IconButton(
+                      onPressed: _displayCooldown > 0
+                          ? null
+                          : () => _triggerBiometricVerify(),
+                      icon: Icon(
+                        Icons.fingerprint,
+                        color: _displayCooldown > 0
+                            ? Colors.grey
+                            : colorScheme.primary,
+                        size: 32,
+                      ),
+                    );
+                  }),
                 ),
+
                 _buildNumBtn("0", colorScheme),
+
                 SizedBox(
                   width: 80,
                   height: 80,
@@ -491,9 +528,50 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 40),
+
+        // NEW: Biometric Toggle Row
+        Obx(() {
+          // Only show if hardware is supported
+          if (!_securityController.canCheckBiometrics.value)
+            return const SizedBox.shrink();
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceVariant.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: colorScheme.outlineVariant.withOpacity(0.3),
+              ),
+            ),
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                "Biometric Unlock",
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: const Text(
+                "Use Fingerprint or FaceID",
+                style: TextStyle(fontSize: 12),
+              ),
+              value: _securityController.useBiometrics.value,
+              onChanged: (val) {
+                if (val) {
+                  // If turning ON, show disclaimer first
+                  _showBiometricDisclaimer(colorScheme);
+                } else {
+                  // If turning OFF, just do it
+                  _securityController.toggleBiometrics(false);
+                }
+              },
+            ),
+          );
+        }),
+
+        // Existing Info Box
         _buildInfoBox(
-          // "Biometric access is tied to your system. Disabling this reset all security data.",
-          "Facial ID and Fingerprint authentication are provided by your device, not this app. By enabling biometric access, you agree that you alone are responsible for the security of your data, and Flowlytics bear no responsibility for misuse, compromise, or unauthorized access.",
+          "Facial ID and Fingerprint authentication are provided by your device. Flowlytics bears no responsibility for unauthorized access via system biometrics.",
           colorScheme,
         ),
         const Spacer(),
@@ -537,9 +615,11 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
     );
   }
 
+  // Updated Disclaimer to actually ENABLE the feature
   void _showBiometricDisclaimer(ColorScheme colorScheme) {
     showDialog(
       context: context,
+      barrierDismissible: false, // Force them to choose
       builder: (context) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
         child: Dialog(
@@ -555,19 +635,47 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
                 Icon(Icons.fingerprint, color: colorScheme.primary, size: 40),
                 const SizedBox(height: 16),
                 const Text(
-                  "Biometric Link",
+                  "Enable Biometrics",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  "This allows using your phone's biometrics. Anyone with a fingerprint registered here can access all your data.",
+                  "Verify your identity to link your device biometrics to Flowlytics.",
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 const SizedBox(height: 24),
-                TextButton(
-                  onPressed: () => Get.back(),
-                  child: const Text("I Accept"),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Get.back(),
+                        child: const Text("Cancel"),
+                      ),
+                    ),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          // Trigger a test scan
+                          bool success = await _securityController
+                              .authenticateUser(force: true);
+                          if (success) {
+                            _securityController.toggleBiometrics(true);
+                            Get.back();
+                            _showGlassSnackBar(
+                              "Biometrics Linked Successfully!",
+                            );
+                          } else {
+                            _showGlassSnackBar(
+                              "Verification Failed",
+                              isError: true,
+                            );
+                          }
+                        },
+                        child: const Text("Verify Now"),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
