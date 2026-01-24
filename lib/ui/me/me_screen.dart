@@ -1,8 +1,9 @@
-import 'dart:ui';
+import 'package:flowlytics/logic/services/backup_service.dart';
 import 'package:flowlytics/ui/security/security_setup_screen.dart';
 import 'package:flowlytics/ui/widgets/glass_snackbar.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:hive/hive.dart';
 import '../../logic/controllers/period_controller.dart';
 import '../../logic/controllers/security_controller.dart';
 import '../insights/insights_screen.dart';
@@ -147,8 +148,22 @@ class _MeScreenState extends State<MeScreen> {
                       context,
                       Icons.upload_file_rounded,
                       "Export Data",
-                      "Save encrypted .json",
-                      () => Get.snackbar("Backup", "Export logic coming soon"),
+                      "Save encrypted .flytx",
+                      () async {
+                        // 1. Show the Security Warning before exporting
+                        bool proceed = await _showSecurityWarning(context);
+                        if (!proceed) return;
+
+                        // 2. Trigger the actual export
+                        bool success = await BackupService.exportLogs();
+                        if (success && mounted) {
+                          GlassSnackbar.show(
+                            context,
+                            "Backup saved!",
+                            icon: Icons.check_circle_rounded,
+                          );
+                        }
+                      },
                     ),
                     const Divider(height: 1, indent: 56),
                     _buildTile(
@@ -156,7 +171,31 @@ class _MeScreenState extends State<MeScreen> {
                       Icons.file_download_rounded,
                       "Import Data",
                       "Restore from file",
-                      () => Get.snackbar("Backup", "Import logic coming soon"),
+                      () async {
+                        // 1. Run the import service
+                        bool success = await BackupService.importLogs();
+
+                        if (success) {
+                          // 2. THIS IS THE FIX: Tell the controller to reload Hive into the UI
+                          controller.syncImportedData();
+
+                          if (mounted) {
+                            GlassSnackbar.show(
+                              context,
+                              "Logs restored!",
+                              icon: Icons.history_edu_rounded,
+                            );
+                          }
+                        } else {
+                          if (mounted) {
+                            GlassSnackbar.show(
+                              context,
+                              "Import failed",
+                              icon: Icons.error_outline,
+                            );
+                          }
+                        }
+                      },
                     ),
                   ]),
 
@@ -256,6 +295,66 @@ class _MeScreenState extends State<MeScreen> {
         ],
       ),
     );
+  }
+
+  Future<bool> _showSecurityWarning(BuildContext context) async {
+    final settingsBox = Hive.box('settings_box');
+    bool hideWarning = settingsBox.get(
+      'hide_export_warning',
+      defaultValue: false,
+    );
+
+    if (hideWarning) return true;
+
+    bool dontShowAgain = false;
+    return await showDialog<bool>(
+          context: context,
+          builder: (context) => StatefulBuilder(
+            builder: (context, setState) => AlertDialog(
+              title: const Text("Security Warning"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Share your critical health data with only those whom you fully trust. Flowlytics is not responsible for any misuse of data once exported.",
+                    style: TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: dontShowAgain,
+                        onChanged: (val) =>
+                            setState(() => dontShowAgain = val!),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          "I understand, don't show again",
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Get.back(result: false),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (dontShowAgain)
+                      settingsBox.put('hide_export_warning', true);
+                    Get.back(result: true);
+                  },
+                  child: const Text("Proceed"),
+                ),
+              ],
+            ),
+          ),
+        ) ??
+        false;
   }
 
   // Header section

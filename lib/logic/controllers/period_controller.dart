@@ -218,10 +218,7 @@ class PeriodController extends GetxController {
     navigatorInsight.value = "";
 
     await _settingsBox.put('user_name', "Beautiful Girl");
-    await _settingsBox.put(
-      'has_completed_onboarding',
-      false,
-    ); // Or false if you want onboarding again
+    await _settingsBox.put('has_completed_onboarding', true);
 
     refreshData();
     refreshDailyLog();
@@ -482,5 +479,12 @@ class PeriodController extends GetxController {
     // Reset user info
     userName.value = "Beautiful Girl";
     await _settingsBox.put('user_name', "Beautiful Girl");
+  }
+
+  // sync data after logs are imported
+  void syncImportedData() {
+    refreshData(); // Reloads period history and runs predictions
+    refreshDailyLog(); // Reloads today's check-in status
+    debugPrint("UI Resynced: ${allLogs.length} periods restored.");
   }
 }
