@@ -23,8 +23,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   DateTimeRange? _lastPeriod;
   int _usualCycle = 28;
 
+  // Total pages increased from 4 to 5
+  final int _totalPages = 5;
+
   void _nextPage() {
-    if (_currentPage < 3) {
+    // Adjusted index for new total pages (Last index is now 4)
+    if (_currentPage < _totalPages - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
@@ -36,8 +40,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         // Glassmorphic Snackbar
         Get.rawSnackbar(
           snackPosition: SnackPosition.BOTTOM,
-          backgroundColor:
-              Colors.transparent, // Transparent to show the glass effect
+          backgroundColor: Colors.transparent,
           duration: const Duration(seconds: 3),
           messageText: ClipRRect(
             borderRadius: BorderRadius.circular(20),
@@ -91,11 +94,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _finishOnboarding() {
-    // controller.completeOnboarding(
-    //   name: _name.isEmpty ? "Beautiful Girl" : _name,
-    //   lastPeriod: _lastPeriod,
-    //   usualCycle: _usualCycle,
-    // );
     Get.to(
       () => NotificationPermissionScreen(
         name: _name.isEmpty ? "Beautiful Girl" : _name,
@@ -108,12 +106,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop:
-          _currentPage == 0, // Prevents the app from exiting from other screens
+      canPop: _currentPage == 0,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         if (_currentPage > 0) {
-          _previousPage(); // Goes to previous onboarding slide instead of closing
+          _previousPage();
         }
       },
       child: Scaffold(
@@ -128,6 +125,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               physics: const NeverScrollableScrollPhysics(),
               children: [
                 _buildWelcomeStep(),
+                _buildSecurityInfoStep(),
                 _buildIdentityStep(),
                 _buildPeriodStep(),
                 _buildBaselineStep(),
@@ -141,10 +139,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 left: 20,
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.only(
-                      left: 10,
-                      top: 5,
-                    ), // Uniform mobile padding
+                    padding: const EdgeInsets.only(left: 10, top: 5),
                     child: IconButton(
                       icon: const Icon(Icons.arrow_back_ios_new_rounded),
                       onPressed: _previousPage,
@@ -156,9 +151,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: _nextPage,
-          label: Text(_currentPage == 3 ? "Start Journey" : "Continue"),
+          // Updated condition for the last page index
+          label: Text(
+            _currentPage == _totalPages - 1 ? "Start Journey" : "Continue",
+          ),
           icon: Icon(
-            _currentPage == 3 ? Icons.favorite_rounded : Icons.arrow_forward,
+            _currentPage == _totalPages - 1
+                ? Icons.favorite_rounded
+                : Icons.arrow_forward,
           ),
         ),
       ),
@@ -166,22 +166,41 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildTopProgress() {
+    // Get the total available width for the progress bar
+    double totalWidth =
+        MediaQuery.of(context).size.width -
+        120; // 120 accounts for horizontal padding (60+60)
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 25),
-        child: LinearProgressIndicator(
-          value: (_currentPage + 1) / 4,
-          borderRadius: BorderRadius.circular(10),
-          minHeight: 6,
-          backgroundColor: Theme.of(
-            context,
-          ).colorScheme.surfaceContainerHighest,
+        child: Container(
+          height: 6,
+          width: totalWidth,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Stack(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeInOut,
+                // Calculate width: (Current Page + 1) / Total Pages
+                width: totalWidth * ((_currentPage + 1) / _totalPages),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // First page: Welcome screen
+  // Welcome Screen
   Widget _buildWelcomeStep() {
     return _buildStepLayout(
       icon: Icons.auto_awesome_rounded,
@@ -191,7 +210,54 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // Second Page: Get name of user (optional)
+  // Security Info Screen
+  Widget _buildSecurityInfoStep() {
+    return _buildStepLayout(
+      icon: Icons.lock_outline_rounded,
+      title: "Privacy & Security",
+      description:
+          "Your privacy is Flowlytics priority. An optional App Lock feature is available for you to enable at any time in:\n\nMe -> Privacy & Security -> App Lock",
+      content: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 20,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  "Security Disclaimer",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              "Please note that no app lock is 100% secured. If you choose to use Fingerprint or Facial ID, you are responsible for maintaining the security of those biometrics on your device.",
+              style: TextStyle(fontSize: 13, height: 1.4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 3. Identity Step
   Widget _buildIdentityStep() {
     return _buildStepLayout(
       icon: Icons.favorite_border_rounded,
@@ -217,7 +283,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // Third Page: Get last known period duration from user (optional)
+  // Period Step
   Widget _buildPeriodStep() {
     return _buildStepLayout(
       icon: Icons.spa_rounded,
@@ -262,7 +328,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // Fourth Page: Get cycle length of user and show health disclaimer
+  // Baseline Step
   Widget _buildBaselineStep() {
     return _buildStepLayout(
       icon: Symbols.query_stats_rounded,
