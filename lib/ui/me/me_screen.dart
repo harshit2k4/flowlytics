@@ -220,6 +220,7 @@ class _MeScreenState extends State<MeScreen> {
                       "Notifications",
                       "Diagnostic & Reminders",
                       () => Get.to(() => const InsightsScreen()),
+                      iconColor: Colors.pinkAccent,
                     ),
                   ]),
 
@@ -240,6 +241,7 @@ class _MeScreenState extends State<MeScreen> {
                         //   "App Lock",
                         //   "PIN Setup Screen coming next!",
                         () => Get.to(() => const SecuritySetupScreen()),
+                        iconColor: Colors.indigoAccent,
                         trailing: securityController.isLockEnabled.value
                             ? const Icon(
                                 Icons.check_circle,
@@ -276,6 +278,7 @@ class _MeScreenState extends State<MeScreen> {
                           );
                         }
                       },
+                      iconColor: Colors.orange,
                     ),
                     const Divider(height: 1, indent: 56),
                     _buildTile(
@@ -308,6 +311,7 @@ class _MeScreenState extends State<MeScreen> {
                           }
                         }
                       },
+                      iconColor: Colors.teal,
                     ),
                   ]),
 
@@ -322,6 +326,7 @@ class _MeScreenState extends State<MeScreen> {
                       "Software Info",
                       "Version & Details",
                       () => _showSoftwareInfo(context),
+                      iconColor: Colors.blueAccent,
                     ),
                     const Divider(height: 1, indent: 56),
                     _buildTile(
@@ -339,6 +344,7 @@ class _MeScreenState extends State<MeScreen> {
                           color: Colors.red,
                         ),
                       ),
+                      iconColor: Colors.purple,
                     ),
                   ]),
 
@@ -743,20 +749,21 @@ class _MeScreenState extends State<MeScreen> {
     String sub,
     VoidCallback? onTap, {
     Widget? trailing,
+    Color? iconColor,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final accentColor = iconColor ?? colorScheme.primary;
+
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          // Matches the StatPill logic exactly
+          color: accentColor.withOpacity(0.1),
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          icon,
-          size: 20,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
+        child: Icon(icon, size: 20, color: accentColor),
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(sub, style: const TextStyle(fontSize: 12)),
