@@ -1,3 +1,5 @@
+import 'package:flowlytics/core/theme/app_theme.dart';
+import 'package:flowlytics/logic/controllers/theme_controller.dart';
 import 'package:flowlytics/logic/services/backup_service.dart';
 import 'package:flowlytics/ui/security/security_setup_screen.dart';
 import 'package:flowlytics/ui/widgets/glass_snackbar.dart';
@@ -20,17 +22,56 @@ class _MeScreenState extends State<MeScreen> {
   bool _isEditing = false;
   final FocusNode _focusNode = FocusNode();
 
+  // PageController with viewportFraction for the "Peek" effect
+  final PageController _pageController = PageController(
+    viewportFraction:
+        0.7, // Adjusted to make cards larger but still show siblings
+  );
+  final RxInt _focusedIndex = 0.obs;
+
   @override
   void initState() {
     super.initState();
     final controller = Get.find<PeriodController>();
     _nameController = TextEditingController(text: controller.userName.value);
+
+    // Set initial focus based on the currently saved theme index
+    final tc = Get.find<ThemeController>();
+    final List<int> themeOrder = [0, 1, 3, 2];
+    _focusedIndex.value = themeOrder.indexOf(tc.currentThemeIndex.value);
+
+    // Jump to the saved theme page initially
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(_focusedIndex.value);
+      }
+    });
+  }
+
+  // Helpers for labels and subtitles
+  String _getThemeLabel(int themeIndex) {
+    return [
+      "Sky Breeze",
+      "Solar Glow",
+      "Classic Flow",
+      "Mint Revival",
+    ][themeIndex];
+  }
+
+  String _getThemeSubtitle(int themeIndex) {
+    return [
+      "Calm & Clarity",
+      "Energy & Warmth",
+      "Strength & Grace",
+      "Fresh & Balanced",
+    ][themeIndex];
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _focusNode.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -38,6 +79,8 @@ class _MeScreenState extends State<MeScreen> {
   Widget build(BuildContext context) {
     final controller = Get.find<PeriodController>();
     final securityController = Get.find<SecurityController>();
+    final themeController = Get.find<ThemeController>();
+    final List<int> themeOrder = [0, 1, 3, 2]; // Sky, Solar, Mint, Classic
 
     return Scaffold(
       body: CustomScrollView(
@@ -63,13 +106,8 @@ class _MeScreenState extends State<MeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 10),
-
-                  // HEADER (Avatar & Name)
                   _buildProfileHeader(context, controller),
-
                   const SizedBox(height: 32),
-
-                  // SYSTEM STATUS
                   _buildSectionHeader("System Status"),
                   const SizedBox(height: 12),
                   Obx(() {
@@ -97,9 +135,83 @@ class _MeScreenState extends State<MeScreen> {
                     );
                   }),
 
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+                  _buildSectionHeader("App Mood"),
 
-                  // PREFERENCES
+                  // Mood Carousel with PageView for "Peek" effect
+                  SizedBox(
+                    height: 200,
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: themeOrder.length,
+                      onPageChanged: (i) => _focusedIndex.value = i,
+                      physics: const BouncingScrollPhysics(),
+                      itemBuilder: (context, index) {
+                        int themeIdx = themeOrder[index];
+                        return Obx(() {
+                          // Dynamic scaling for the focused card
+                          double scale = _focusedIndex.value == index
+                              ? 1.0
+                              : 0.9;
+                          return TweenAnimationBuilder(
+                            duration: const Duration(milliseconds: 300),
+                            tween: Tween(begin: scale, end: scale),
+                            builder: (context, double val, child) {
+                              return Transform.scale(
+                                scale: val,
+                                child: _buildMoodCard(
+                                  themeIdx,
+                                  _getThemeLabel(themeIdx),
+                                  _getThemeSubtitle(themeIdx),
+                                  themeController,
+                                ),
+                              );
+                            },
+                          );
+                        });
+                      },
+                    ),
+                  ),
+
+                  // Intuitive Scroll Dots
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Obx(
+                      () => Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(themeOrder.length, (index) {
+                          bool isFocused = _focusedIndex.value == index;
+                          Color activeColor = themeController.getSeedColor(
+                            themeOrder[index],
+                          );
+
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 400),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            height: 8,
+                            width: isFocused ? 24 : 8,
+                            decoration: BoxDecoration(
+                              color: isFocused
+                                  ? activeColor
+                                  : Colors.grey.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: isFocused
+                                  ? [
+                                      BoxShadow(
+                                        color: activeColor.withOpacity(0.3),
+                                        blurRadius: 6,
+                                        spreadRadius: 1,
+                                      ),
+                                    ]
+                                  : [],
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
                   _buildSectionHeader("Preferences"),
                   _buildSettingsGroup(context, [
                     _buildTile(
@@ -355,6 +467,137 @@ class _MeScreenState extends State<MeScreen> {
           ),
         ) ??
         false;
+  }
+
+  Widget _buildMoodCard(
+    int index,
+    String title,
+    String subtitle,
+    ThemeController tc,
+  ) {
+    return Obx(() {
+      final isSelected = tc.currentThemeIndex.value == index;
+      final seed = AppTheme.getSeedColor(index);
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+
+      return GestureDetector(
+        onTap: () => tc.changeTheme(index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOutCubic,
+          width: 160,
+          // Vertical margins ensure the outer shadow has room to fade naturally
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? seed.withOpacity(isDark ? 0.25 : 0.12)
+                : (isDark
+                      ? Colors.white.withOpacity(0.05)
+                      : Colors.grey.shade50),
+            borderRadius: BorderRadius.circular(32),
+            // Subtle definition for both light and dark mode
+            border: Border.all(
+              color: isSelected
+                  ? seed
+                  : (isDark
+                        ? Colors.white.withOpacity(0.1)
+                        : Colors.black.withOpacity(0.08)),
+              width: 1.5,
+            ),
+            // Soft falloff with a larger blur to prevent "boxy" cuts
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: seed.withOpacity(isDark ? 0.3 : 0.15),
+                      blurRadius: 25,
+                      spreadRadius: -4,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : [
+                    // Clean depth for Light Mode unselected cards
+                    if (!isDark)
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                  ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: Stack(
+              children: [
+                Positioned(
+                  right: -15,
+                  top: -15,
+                  child: CircleAvatar(
+                    radius: 40,
+                    backgroundColor: seed.withOpacity(isSelected ? 0.12 : 0.04),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      // IMPROVED: Barely-there Inner Glow
+                      Container(
+                        height: 10,
+                        width: 10,
+                        decoration: BoxDecoration(
+                          color: seed,
+                          shape: BoxShape.circle,
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: seed.withOpacity(
+                                      0.15,
+                                    ), // Very subtle bloom
+                                    blurRadius: 4,
+                                    spreadRadius: 1,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        title,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                          color: isSelected
+                              ? seed
+                              : (isDark ? Colors.white70 : Colors.black87),
+                        ),
+                      ),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isSelected
+                              ? seed.withOpacity(0.7)
+                              : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isSelected)
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: Icon(Icons.check_circle, size: 20, color: seed),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   // Header section

@@ -4,6 +4,7 @@ import 'package:flowlytics/data/models/daily_log.dart';
 import 'package:flowlytics/logic/controllers/diagnostic_controller.dart';
 import 'package:flowlytics/logic/controllers/period_controller.dart';
 import 'package:flowlytics/logic/controllers/security_controller.dart';
+import 'package:flowlytics/logic/controllers/theme_controller.dart';
 import 'package:flowlytics/logic/services/notification_service.dart';
 import 'package:flowlytics/logic/services/security_guard.dart';
 import 'package:flowlytics/ui/onboarding/onboarding_screen.dart';
@@ -40,6 +41,8 @@ void main() async {
   // Initialize the controller
   final controller = Get.put(PeriodController());
 
+  Get.put(ThemeController(), permanent: true);
+
   // Register all controllers globally on app start
   // Get.put(NavigationController());
   // Get.put(PeriodController());
@@ -69,23 +72,28 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<PeriodController>();
 
-    return GetMaterialApp(
-      title: 'Flowlytics',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
-      // trigger security screen (if available) first before any screen shows
-      builder: (context, child) {
-        return SecurityGuard(child: child);
-      },
-      home: Obx(() {
-        if (controller.isFirstRun.value) {
-          return const OnboardingScreen();
-        } else {
-          return const NavWrapper();
-        }
-      }),
+    final themeController = Get.isRegistered<ThemeController>()
+        ? Get.find<ThemeController>()
+        : Get.put(ThemeController(), permanent: true);
+
+    return Obx(
+      () => GetMaterialApp(
+        title: 'Flowlytics',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.getTheme(
+          themeController.currentThemeIndex.value,
+          Brightness.light,
+        ),
+        darkTheme: AppTheme.getTheme(
+          themeController.currentThemeIndex.value,
+          Brightness.dark,
+        ),
+        themeMode: ThemeMode.system,
+        builder: (context, child) => SecurityGuard(child: child),
+        home: controller.isFirstRun.value
+            ? const OnboardingScreen()
+            : const NavWrapper(),
+      ),
     );
   }
 }
