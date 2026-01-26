@@ -327,11 +327,11 @@ class _MeScreenState extends State<MeScreen> {
                       "Health Summary",
                       "View your journey summary",
                       () {
-                        // TODO: Implement PDF generation logic
-                        GlassSnackbar.show(
-                          context,
-                          "Generating your summary...",
-                          icon: Icons.hourglass_empty_rounded,
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (context) => const WellnessReportModal(),
                         );
                       },
                       iconColor: Colors.deepOrangeAccent,
