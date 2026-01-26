@@ -24,7 +24,9 @@ dependencies:
   local_auth: ^2.3.0
   material_symbols_icons: ^4.2892.0
   path_provider: ^2.1.5
+  pdf: ^3.11.1
   permission_handler: ^11.3.1
+  printing: ^5.13.2
   share_plus: ^10.1.0
   table_calendar: ^3.2.0
   timezone: ^0.9.4
@@ -37,3 +39,12 @@ dev_dependencies:
   hive_generator: ^2.0.1
 flutter:
   uses-material-design: true
+
+  fonts:
+    - family: CrimsonText
+      fonts:
+        - asset: assets/fonts/CrimsonText-Regular.ttf
+        - asset: assets/fonts/CrimsonText-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/CrimsonText-Italic.ttf
+          style: italic
