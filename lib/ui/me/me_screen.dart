@@ -3,6 +3,7 @@ import 'package:flowlytics/logic/controllers/theme_controller.dart';
 import 'package:flowlytics/logic/services/backup_service.dart';
 import 'package:flowlytics/ui/security/security_setup_screen.dart';
 import 'package:flowlytics/ui/widgets/glass_snackbar.dart';
+import 'package:flowlytics/ui/widgets/wellness_report_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
@@ -320,6 +321,22 @@ class _MeScreenState extends State<MeScreen> {
                   // INFORMATION
                   _buildSectionHeader("Information"),
                   _buildSettingsGroup(context, [
+                    _buildTile(
+                      context,
+                      Icons.picture_as_pdf_rounded,
+                      "Health Summary",
+                      "View your journey summary",
+                      () {
+                        // TODO: Implement PDF generation logic
+                        GlassSnackbar.show(
+                          context,
+                          "Generating your summary...",
+                          icon: Icons.hourglass_empty_rounded,
+                        );
+                      },
+                      iconColor: Colors.deepOrangeAccent,
+                    ),
+                    const Divider(height: 1, indent: 56),
                     _buildTile(
                       context,
                       Icons.info_outline_rounded,
