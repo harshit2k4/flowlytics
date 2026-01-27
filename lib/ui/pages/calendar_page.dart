@@ -1,3 +1,4 @@
+import 'package:flowlytics/ui/widgets/comfort_overlay.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -62,6 +63,91 @@ class _CalendarPageState extends State<CalendarPage> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: () {
+              // Get status from controller
+              final status = controller
+                  .currentStatus
+                  .name; // 'wellness', 'preparation', or 'active'
+              // Get.dialog(
+              //   ComfortOverlay(status: status),
+              //   barrierDismissible: false,
+              //   barrierColor: Colors.transparent,
+              // );
+              Get.generalDialog(
+                pageBuilder: (context, anim1, anim2) =>
+                    ComfortOverlay(status: status),
+                barrierDismissible: false,
+                barrierColor: Colors.black.withOpacity(0.05),
+                transitionDuration: const Duration(milliseconds: 400),
+                // transitionBuilder: (context, anim1, anim2, child) {
+                //   return FadeTransition(
+                //     opacity: CurvedAnimation(
+                //       parent: anim1,
+                //       curve: Curves.easeInOut,
+                //     ),
+                //     child: ScaleTransition(
+                //       scale: CurvedAnimation(
+                //         parent: anim1,
+                //         curve: Curves.easeOutCubic,
+                //       ),
+                //       child: child,
+                //     ),
+                //   );
+                // },
+                transitionBuilder: (context, anim1, anim2, child) {
+                  final colorScheme = Theme.of(context).colorScheme;
+
+                  return Stack(
+                    children: [
+                      // LAYER 1: The Seamless Blur (Only Fades, never scales)
+                      FadeTransition(
+                        opacity: CurvedAnimation(
+                          parent: anim1,
+                          curve: const Interval(
+                            0.0,
+                            0.6,
+                            curve: Curves.easeOut,
+                          ),
+                        ),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                          child: Container(
+                            color: colorScheme.surface.withOpacity(0.4),
+                          ),
+                        ),
+                      ),
+
+                      // LAYER 2: The Content (Fades + Subtle Drift)
+                      FadeTransition(
+                        opacity: CurvedAnimation(
+                          parent: anim1,
+                          curve: const Interval(0.2, 1.0, curve: Curves.easeIn),
+                        ),
+                        child: ScaleTransition(
+                          scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+                            CurvedAnimation(
+                              parent: anim1,
+                              curve: const Interval(
+                                0.1,
+                                1.0,
+                                curve: Curves.easeOutCubic,
+                              ),
+                            ),
+                          ),
+                          child: child,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+            icon: const Icon(Icons.auto_awesome_outlined),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: Obx(() {
         final allLogs = controller.allLogs.reversed.toList();

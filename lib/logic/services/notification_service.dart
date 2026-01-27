@@ -1,4 +1,9 @@
+import 'dart:ui';
+
+import 'package:flowlytics/logic/controllers/security_controller.dart';
 import 'package:flowlytics/ui/pages/calendar_page.dart';
+import 'package:flowlytics/ui/widgets/comfort_overlay.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
@@ -59,24 +64,142 @@ class NotificationService {
   }
 
   // Logic that decides where to go
+  // void _handleNotificationTap(String? payload) {
+  //   if (payload == null) return;
+  //   debugPrint("Notification Tapped with payload: $payload");
+
+  //   // Use Future.delayed to ensure the Navigator is ready
+  //   Future.delayed(const Duration(milliseconds: 200), () {
+  //     final nav = Get.find<NavigationController>();
+
+  //     if (payload == 'period_reminder') {
+  //       nav.changeIndex(0); // Go to Home Tab
+  //       Get.until((route) => route.isFirst); // Clear any open dialogs
+  //       Get.to(() => const CalendarPage()); // Open Calendar
+  //     } else if (payload == 'diagnostic_test') {
+  //       nav.changeIndex(0); // Ensure we are on Home Tab
+  //       Get.until((route) => route.isFirst);
+  //       Get.to(() => const InsightsScreen()); // Open Insights
+  //     }
+  //   });
+  // }
+
   void _handleNotificationTap(String? payload) {
     if (payload == null) return;
-    debugPrint("Notification Tapped with payload: $payload");
 
-    // Use Future.delayed to ensure the Navigator is ready
     Future.delayed(const Duration(milliseconds: 200), () {
       final nav = Get.find<NavigationController>();
 
       if (payload == 'period_reminder') {
-        nav.changeIndex(0); // Go to Home Tab
-        Get.until((route) => route.isFirst); // Clear any open dialogs
-        Get.to(() => const CalendarPage()); // Open Calendar
-      } else if (payload == 'diagnostic_test') {
-        nav.changeIndex(0); // Ensure we are on Home Tab
+        // 1. Prepare the background: Switch to Home Tab and clear the stack
+        nav.changeIndex(0);
         Get.until((route) => route.isFirst);
-        Get.to(() => const InsightsScreen()); // Open Insights
+
+        // 2. Navigate to the Calendar Page
+        Get.to(() => const CalendarPage());
+
+        // 3. Trigger the Comfort Overlay with Security Awareness
+        _triggerComfortFlow();
+      } else if (payload == 'diagnostic_test') {
+        nav.changeIndex(0);
+        Get.until((route) => route.isFirst);
+        Get.to(() => const InsightsScreen());
       }
     });
+  }
+
+  void _triggerComfortFlow() {
+    final security = Get.find<SecurityController>();
+
+    if (!security.isLocked.value) {
+      // Scenario: App is already open or has no lock
+      _showComfortOverlay();
+    } else {
+      // Scenario: App is locked. We "listen" for the moment it unlocks.
+      late Worker unlockWorker;
+      unlockWorker = ever(security.isLocked, (bool isLocked) {
+        if (!isLocked) {
+          // Add a small delay so the lock screen fade animation finishes first
+          Future.delayed(const Duration(milliseconds: 400), () {
+            _showComfortOverlay();
+          });
+          unlockWorker
+              .dispose(); // Cleanup: We only want this once per notification tap
+        }
+      });
+    }
+  }
+
+  // void _showComfortOverlay() {
+  //   Get.dialog(
+  //     const ComfortOverlay(
+  //       status: 'preparation',
+  //     ), // Force prep message for notifications
+  //     barrierDismissible: false,
+  //     barrierColor: Colors.transparent,
+  //     transitionDuration: const Duration(milliseconds: 500),
+  //   );
+  // }
+
+  void _showComfortOverlay() {
+    Get.generalDialog(
+      pageBuilder: (context, anim1, anim2) =>
+          const ComfortOverlay(status: 'preparation'),
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.05), // Very light dim
+      transitionDuration: const Duration(
+        milliseconds: 400,
+      ), // Slower, elegant fade
+      // transitionBuilder: (context, anim1, anim2, child) {
+      //   // Create a smooth scale + fade effect
+      //   return FadeTransition(
+      //     opacity: CurvedAnimation(parent: anim1, curve: Curves.easeInOut),
+      //     child: ScaleTransition(
+      //       scale: CurvedAnimation(
+      //         parent: anim1,
+      //         curve: Curves.easeOutCubic, // Slight bounce for the "Cute" factor
+      //       ),
+      //       child: child,
+      //     ),
+      //   );
+      // },
+      transitionBuilder: (context, anim1, anim2, child) {
+        final colorScheme = Theme.of(context).colorScheme;
+
+        return Stack(
+          children: [
+            // LAYER 1: The Seamless Blur (Only Fades, never scales)
+            FadeTransition(
+              opacity: CurvedAnimation(
+                parent: anim1,
+                curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                child: Container(color: colorScheme.surface.withOpacity(0.4)),
+              ),
+            ),
+
+            // LAYER 2: The Content (Fades + Subtle Drift)
+            FadeTransition(
+              opacity: CurvedAnimation(
+                parent: anim1,
+                curve: const Interval(0.2, 1.0, curve: Curves.easeIn),
+              ),
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+                  CurvedAnimation(
+                    parent: anim1,
+                    curve: const Interval(0.1, 1.0, curve: Curves.easeOutCubic),
+                  ),
+                ),
+                child: child,
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _setupAndroidChannels() async {
