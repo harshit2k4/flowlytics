@@ -76,4 +76,11 @@ class AppStrings {
   static const String systemCheckTitle = "Guardian System Check";
   static const String systemCheckBody =
       "Flowlytics is awake and watching the clock! Your next reminder is synced.";
+
+  static const String wellnessReportTitle = "Wellness Overview";
+  static const String medicalDisclaimer =
+      "Medical Disclaimer: Flowlytics is an educational tool. The predictions provided are estimates based on historical data. This report is NOT a substitute for professional medical advice or treatment. It must NOT be used for contraception.";
+
+  static const String legalDisclaimer =
+      "Legal Disclaimer: This document was generated locally. Once exported, data security is the sole responsibility of the user. Flowlytics are not liable for unauthorized sharing.";
 }
