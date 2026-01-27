@@ -163,35 +163,69 @@ class NotificationService {
       //     ),
       //   );
       // },
+      // transitionBuilder: (context, anim1, anim2, child) {
+      //   final colorScheme = Theme.of(context).colorScheme;
+
+      //   return Stack(
+      //     children: [
+      //       // LAYER 1: The Seamless Blur (Only Fades, never scales)
+      //       FadeTransition(
+      //         opacity: CurvedAnimation(
+      //           parent: anim1,
+      //           curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+      //         ),
+      //         child: BackdropFilter(
+      //           filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+      //           child: Container(color: colorScheme.surface.withOpacity(0.4)),
+      //         ),
+      //       ),
+
+      //       // LAYER 2: The Content (Fades + Subtle Drift)
+      //       FadeTransition(
+      //         opacity: CurvedAnimation(
+      //           parent: anim1,
+      //           curve: const Interval(0.2, 1.0, curve: Curves.easeIn),
+      //         ),
+      //         child: ScaleTransition(
+      //           scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+      //             CurvedAnimation(
+      //               parent: anim1,
+      //               curve: const Interval(0.1, 1.0, curve: Curves.easeOutCubic),
+      //             ),
+      //           ),
+      //           child: child,
+      //         ),
+      //       ),
+      //     ],
+      //   );
+      // },
+
+      // Optimized animation
       transitionBuilder: (context, anim1, anim2, child) {
         final colorScheme = Theme.of(context).colorScheme;
 
         return Stack(
           children: [
-            // LAYER 1: The Seamless Blur (Only Fades, never scales)
+            // Layer 1: The Blur (Fades in without scaling)
             FadeTransition(
-              opacity: CurvedAnimation(
-                parent: anim1,
-                curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
-              ),
+              opacity: anim1,
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                // Keep blur (sigma) at 10 for better performance on Mobile devices
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                 child: Container(color: colorScheme.surface.withOpacity(0.4)),
               ),
             ),
 
-            // LAYER 2: The Content (Fades + Subtle Drift)
+            // Layer 2: The Content (Optimized Fade + Scale)
             FadeTransition(
               opacity: CurvedAnimation(
                 parent: anim1,
-                curve: const Interval(0.2, 1.0, curve: Curves.easeIn),
+                curve: const Interval(0.1, 1.0, curve: Curves.easeIn),
               ),
               child: ScaleTransition(
-                scale: Tween<double>(begin: 0.95, end: 1.0).animate(
-                  CurvedAnimation(
-                    parent: anim1,
-                    curve: const Interval(0.1, 1.0, curve: Curves.easeOutCubic),
-                  ),
+                // Start at 0.97 for a very subtle, fast movement
+                scale: Tween<double>(begin: 0.97, end: 1.0).animate(
+                  CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic),
                 ),
                 child: child,
               ),

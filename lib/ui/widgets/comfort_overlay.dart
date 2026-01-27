@@ -15,13 +15,13 @@ class ComfortOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    // --- PERSONALIZATION LOGIC ---
+    // Personalized Name
     final PeriodController periodController = Get.find<PeriodController>();
     final String name = periodController.userName.value.trim();
     final bool isCustomName = name.isNotEmpty && name != "Beautiful Girl";
 
-    // --- YOUR ORIGINAL MESSAGES ---
-    String title = "A GENTLE REMINDER";
+    // Messages based on current mood fetched from periods controller
+    String title = "JUST A HEADS UP";
     String message = isCustomName
         ? "$name, get ready, your periods are on the way. Stock up on pads and the food you love! 🍫"
         : "Get ready, your periods are on the way. Stock up on pads and the food you love! 🍫";
