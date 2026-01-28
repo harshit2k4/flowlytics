@@ -1,12 +1,14 @@
+import 'dart:math';
+
 import 'package:flowlytics/data/models/daily_log.dart';
 import 'package:flowlytics/logic/controllers/security_controller.dart';
+import 'package:flowlytics/logic/services/enhanced_navigator_engine.dart';
+import 'package:flowlytics/logic/services/enhanced_prediction_engine.dart';
 import 'package:flowlytics/logic/services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
 import '../../data/models/period_log.dart';
-import '../services/prediction_engine.dart';
-import '../services/navigator_engine.dart'; // Import the new Brain
 
 enum PeriodStatus { wellness, preparation, active }
 
@@ -22,9 +24,15 @@ class PeriodController extends GetxController {
   var userName = "Beautiful Girl".obs;
   var isFirstRun = true.obs;
 
-  // ML Observables (New)
+  // ML Observables (New Window & Confidence Logic)
   var navigatorInsight = "".obs;
   var isNavigatorActive = false.obs;
+
+  // Likely Window & Ovulation from new algorithm
+  var predictedWindowStart = DateTime.now().obs;
+  var predictedWindowEnd = DateTime.now().obs;
+  var predictedOvulation = DateTime.now().obs;
+  var confidenceScore = 50.obs; // Default to medium confidence
 
   // Private store for the raw math prediction
   DateTime? _baseMathPrediction;
@@ -53,8 +61,14 @@ class PeriodController extends GetxController {
       updateCycleReminder();
     }
 
-    // populate mock data (remove before sending to production)
+    // populate mock data (remove before applying to production)
     // injectTestData();
+
+    // load diverse dataset (remove before applying to production)
+    // injectElenaTwoYearHistory();
+
+    // load irregular data (remove before applying to production)
+    // injectLunaTwoYearIrregular();
   }
 
   // Called whenever data changes to recalculate everything
@@ -62,7 +76,13 @@ class PeriodController extends GetxController {
     // If no logs, set default and stop
     if (_logBox.isEmpty) {
       allLogs.clear();
-      predictedStartDate.value = DateTime.now().add(const Duration(days: 28));
+      // Default to 28 days for empty state
+      final defaultNext = DateTime.now().add(const Duration(days: 28));
+      predictedStartDate.value = defaultNext;
+      predictedWindowStart.value = defaultNext.subtract(
+        const Duration(days: 1),
+      );
+      predictedWindowEnd.value = defaultNext.add(const Duration(days: 1));
       return;
     }
 
@@ -84,12 +104,20 @@ class PeriodController extends GetxController {
     }
     allLogs.assignAll(logs);
 
-    // Run Math Prediction (Math based algo)
+    // Run the new Bio-Intelligent prediction algorithm
     final int baseline = _settingsBox.get('baseline_cycle', defaultValue: 28);
-    _baseMathPrediction = PredictionEngine.predictNextStart(allLogs, baseline);
 
-    // Default to math prediction
-    predictedStartDate.value = _baseMathPrediction!;
+    // Get the full Schema, not just a date
+    final PredictionSchema schema = PredictionEngine.predict(allLogs, baseline);
+
+    _baseMathPrediction = schema.predictedDate;
+
+    // Update Observables from the Schema
+    predictedStartDate.value = schema.predictedDate;
+    predictedWindowStart.value = schema.windowStart;
+    predictedWindowEnd.value = schema.windowEnd;
+    predictedOvulation.value = schema.ovulationDate;
+    confidenceScore.value = schema.confidenceScore;
 
     // Trigger Navigator (New algo)
     _runNavigator();
@@ -134,7 +162,7 @@ class PeriodController extends GetxController {
       todayLog: todayLog.value,
       history: allLogs,
       baselineCycle: baseline,
-      userName: userName.value, // name goes here
+      userName: userName.value,
     );
 
     predictedStartDate.value = result.adjustedDate;
@@ -216,6 +244,7 @@ class PeriodController extends GetxController {
     allLogs.clear();
     isNavigatorActive.value = false;
     navigatorInsight.value = "";
+    confidenceScore.value = 50; // Reset confidence
 
     await _settingsBox.put('user_name', "Beautiful Girl");
     await _settingsBox.put('has_completed_onboarding', true);
@@ -295,26 +324,11 @@ class PeriodController extends GetxController {
   }
 
   Future<void> deletePeriodLog(PeriodLog log) async {
-    // 1. Delete from Hive
-    // Since PeriodLog extends HiveObject, it knows its own key.
     await log.delete();
-
-    // 2. Recalibrate the entire System
-    // This will:
-    // - Re-fetch the list from Hive (now missing the deleted log)
-    // - Re-sort them (just in case)
-    // - Re-calculate 'cycleLength' for the remaining logs (fixing gaps)
-    // - Re-run PredictionEngine (Math)
-    // - Re-run NavigatorEngine (ML Insight)
     refreshData();
-
-    // Now the UI updates automatically via Obx variables
   }
 
   // Mock data for testing purpose only (remove before applying to production)
-  /// Populates the database with a dummy dataset of 12 records.
-  /// Designed to test UI pagination (Show More), ML Weighted Mean reliability,
-  /// and biological anomaly handling.
   Future<void> injectTestData() async {
     // Purge existing data for a clean test environment
     await _logBox.clear();
@@ -324,9 +338,6 @@ class PeriodController extends GetxController {
     final DateTime todayMidnight = DateTime(now.year, now.month, now.day);
 
     // --- CASE 1-10: THE LONG-TERM HISTORY (PAGINATION & ML STABILITY) ---
-    // Create a year's worth of data.
-    // Notice the subtle 'Drift': older cycles are 30 days, recent ones are 28.
-    // This tests if the ML correctly prioritizes the recent 28-day trend.
     List<PeriodLog> historicalLogs = [];
 
     // Generating 10 stable logs moving backwards in time
@@ -348,7 +359,6 @@ class PeriodController extends GetxController {
     }
 
     // --- CASE 11: THE "RECENT STABLE" LOG ---
-    // This is the current reference point for the 'Home' screen cycle day.
     await _logBox.add(
       PeriodLog(
         startDate: todayMidnight.subtract(const Duration(days: 26)),
@@ -357,9 +367,6 @@ class PeriodController extends GetxController {
     );
 
     // --- CASE 12: THE "ANOMALY" (DELETION & RE-CALIBRATION TEST) ---
-    // An irregular, short cycle (only 10 days since the last one).
-    // This will trigger 'Case 12' at the top of the list.
-    // TEST: Delete this to see the "Show More" button shift and ML heal.
     await _logBox.add(
       PeriodLog(
         startDate: todayMidnight.subtract(const Duration(days: 10)),
@@ -368,7 +375,6 @@ class PeriodController extends GetxController {
     );
 
     // ML Model trigger
-    // Applied 'Spotting' log for today to verify NavigatorEngine overrides.
     await _dailyBox.add(
       DailyLog(
         date: todayMidnight,
@@ -394,30 +400,102 @@ class PeriodController extends GetxController {
     debugPrint("Total Logs: ${_logBox.length} (Pagination active)");
   }
 
+  /// Mock data for testing purpose only (remove before applying to production)
+  /// This covers most of the normal cases
+  Future<void> injectElenaTwoYearHistory() async {
+    await _logBox.clear();
+    await _dailyBox.clear();
+
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    DateTime runner = today.subtract(const Duration(days: 730));
+
+    // 1. History: stable 28-day data leading up to 26 days ago
+    for (int i = 0; i < 26; i++) {
+      final periodStart = (i == 25)
+          ? today.subtract(const Duration(days: 26))
+          : runner;
+
+      await _logBox.add(
+        PeriodLog(
+          startDate: periodStart,
+          endDate: periodStart.add(const Duration(days: 5)),
+        ),
+      );
+
+      if (i > 20) {
+        await _dailyBox.add(
+          DailyLog(
+            date: periodStart.subtract(const Duration(days: 2)),
+            moods: ["Sensitive"],
+            skin: ["Breakouts"],
+          ),
+        );
+      }
+      runner = runner.add(const Duration(days: 28));
+    }
+
+    // 2. Today's Mood Log (Triggers -1 day nudge from Jan 29 -> Jan 28)
+    await _dailyBox.add(
+      DailyLog(date: today, moods: ["Sensitive", "Tired"], skin: ["Breakouts"]),
+    );
+
+    // 3. Update Settings and Observables
+    await _settingsBox.put('user_name', "Elena");
+    await _settingsBox.put('has_completed_onboarding', false);
+    userName.value = "Elena";
+    isFirstRun.value = false;
+
+    refreshData();
+    refreshDailyLog();
+  }
+
+  /// This covers irregular periods cases
+  Future<void> injectLunaTwoYearIrregular() async {
+    await _logBox.clear();
+    await _dailyBox.clear();
+
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    DateTime runner = today.subtract(const Duration(days: 730));
+
+    // 1. History with Chaos (Triggers lower confidence)
+    List<int> chaosGaps = [21, 45, 28, 32, 24, 50, 22, 38, 30, 42];
+    int idx = 0;
+    while (runner.isBefore(today.subtract(const Duration(days: 30)))) {
+      await _logBox.add(
+        PeriodLog(
+          startDate: runner,
+          endDate: runner.add(const Duration(days: 5)),
+        ),
+      );
+      runner = runner.add(Duration(days: chaosGaps[idx % chaosGaps.length]));
+      idx++;
+    }
+
+    // 2. Today's Safety Log (Cramps on Day 10 should NOT nudge)
+    await _dailyBox.add(
+      DailyLog(date: today, physical: ["Cramps"], moods: ["Energetic"]),
+    );
+
+    // 3. Update Settings and Observables
+    await _settingsBox.put('user_name', "Luna");
+    await _settingsBox.put('has_completed_onboarding', false);
+    userName.value = "Luna";
+    isFirstRun.value = false;
+
+    refreshData();
+    refreshDailyLog();
+  }
+
   // scheduling notifications
   void updateCycleReminder() {
-    // no notification implementation for non mobile devices
     if (!GetPlatform.isAndroid && !GetPlatform.isIOS) return;
 
     if (allLogs.isEmpty) {
-      // There will be no logs if user skipped date entry in onboarding
       debugPrint("No period logs found. Skipping notification scheduling.");
       return;
     }
-
-    final reminderDate = predictedStartDate.value.subtract(
-      const Duration(days: 2),
-    );
-
-    // final scheduledTime = DateTime(
-    //   reminderDate.year,
-    //   reminderDate.month,
-    //   reminderDate.day - 2, // remove -2
-    //   22, // change to 8
-    //   0,
-    // );
-
-    // debugPrint("LOG: Notification set for: ${scheduledTime.toString()}");
 
     final scheduledTime = DateTime(
       predictedStartDate.value.year,
@@ -442,17 +520,14 @@ class PeriodController extends GetxController {
   }
 
   // Notification page UI elements
-  double get mlConfidence {
-    if (allLogs.isEmpty) return 0.0;
-    if (allLogs.length == 1) return 0.65; // Initial guess
-    if (allLogs.length < 4) return 0.85; // Building patterns
-    return 0.96; // High confidence
-  }
+  // Now uses real Bio-Engine data
+  double get mlConfidence => confidenceScore.value / 100.0;
 
   String get confidenceStatus {
-    if (allLogs.isEmpty) return "CALIBRATING";
-    if (allLogs.length < 3) return "LEARNING";
-    return "OPTIMIZED";
+    int score = confidenceScore.value;
+    if (score < 50) return "CALIBRATING";
+    if (score < 80) return "LEARNING";
+    return "OPTIMIZED"; // High confidence (80+)
   }
 
   // update username in me screen
@@ -472,13 +547,13 @@ class PeriodController extends GetxController {
     todayLog.value = null;
 
     // Clear Security Data
-    // Fetch the SecurityController and tell it to reset
     final securityController = Get.find<SecurityController>();
     await securityController.resetSecurity();
 
     // Reset user info
     userName.value = "Beautiful Girl";
     await _settingsBox.put('user_name', "Beautiful Girl");
+    confidenceScore.value = 50;
   }
 
   // sync data after logs are imported

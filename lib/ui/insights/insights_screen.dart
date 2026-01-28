@@ -78,10 +78,11 @@ class InsightsScreen extends StatelessWidget {
         status = "CALIBRATING";
         confidence = 65;
         insightText =
-            "Initial entry recorded. A second log is required to identify your unique interval and activate projections.";
+            "Initial entry recorded. A second log is required to activate projections.";
       } else {
-        status = "ACTIVE";
-        confidence = 94;
+        // Use the engine's calculated status and score instead of hardcoded value
+        status = controller.confidenceStatus;
+        confidence = controller.confidenceScore.value;
         insightText = controller.navigatorInsight.value.isEmpty
             ? "Your cycle history has established a reliable data baseline. Projections are now active."
             : controller.navigatorInsight.value;
