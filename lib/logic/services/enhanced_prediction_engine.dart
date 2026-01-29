@@ -7,6 +7,7 @@ class PredictionSchema {
   final DateTime windowEnd; // +Sigma
   final DateTime ovulationDate;
   final int confidenceScore; // 1-100 based on regularity
+  final int averageCycleLength;
 
   PredictionSchema({
     required this.predictedDate,
@@ -14,6 +15,7 @@ class PredictionSchema {
     required this.windowEnd,
     required this.ovulationDate,
     required this.confidenceScore,
+    required this.averageCycleLength,
   });
 }
 
@@ -23,7 +25,6 @@ class PredictionEngine {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    // If the user is a new user then use manual baseline
     if (logs.isEmpty) {
       DateTime next = today.add(Duration(days: baselineCycle));
       return PredictionSchema(
@@ -31,30 +32,40 @@ class PredictionEngine {
         windowStart: next.subtract(const Duration(days: 1)),
         windowEnd: next.add(const Duration(days: 1)),
         ovulationDate: next.subtract(const Duration(days: 14)),
-        confidenceScore: 50, // Moderate confidence for new users
+        confidenceScore: 50,
+        averageCycleLength: baselineCycle,
       );
     }
 
-    // Sort & Extract Data
-    logs.sort((a, b) => b.startDate.compareTo(a.startDate));
+    // Sort Newest to Oldest
+    List<PeriodLog> sortedLogs = List.from(logs);
+    sortedLogs.sort((a, b) => b.startDate.compareTo(a.startDate));
 
-    // FILTER: Exclude "Ghost" cycles (0 days) or extreme outliers (<15 or >50 days)
-    // capable of ruining the average
-    List<int> validLengths = logs
-        .map((l) => l.cycleLength)
-        .where((len) => len >= 21 && len <= 45)
-        .toList();
+    // Dynamically calculate cycle lengths
+    List<int> calculatedLengths = [];
+    for (int i = 0; i < sortedLogs.length - 1; i++) {
+      int diff = sortedLogs[i].startDate
+          .difference(sortedLogs[i + 1].startDate)
+          .inDays;
+      // Filter outliers
+      if (diff >= 15 && diff <= 50) {
+        calculatedLengths.add(diff);
+      }
+    }
 
-    // The Core Prediction -> Calculate Weighted Mean
-    int calculatedAvg = _calculateWeightedMean(validLengths, baselineCycle);
+    // Fallback if no valid lengths found
+    int calculatedAvg = calculatedLengths.isEmpty
+        ? baselineCycle
+        : _calculateWeightedMean(calculatedLengths, baselineCycle);
 
-    // Adjustment System -> Calculate Standard Deviation
-    double deviation = _calculateStandardDeviation(validLengths, calculatedAvg);
-    // Min 1 day, Max 4 days window
+    double deviation = calculatedLengths.isEmpty
+        ? 1.5
+        : _calculateStandardDeviation(calculatedLengths, calculatedAvg);
+
     int windowDays = deviation.round().clamp(1, 4);
 
-    // Generate dates
-    final lastStart = logs.first.startDate;
+    // 4. Generate dates based on the MOST RECENT log
+    final lastStart = sortedLogs.first.startDate;
     final lastStartMidnight = DateTime(
       lastStart.year,
       lastStart.month,
@@ -62,8 +73,6 @@ class PredictionEngine {
     );
 
     DateTime predicted = lastStartMidnight.add(Duration(days: calculatedAvg));
-
-    // Ovulation is typically 14 days before the next period
     DateTime ovulation = predicted.subtract(const Duration(days: 14));
 
     return PredictionSchema(
@@ -71,7 +80,11 @@ class PredictionEngine {
       windowStart: predicted.subtract(Duration(days: windowDays)),
       windowEnd: predicted.add(Duration(days: windowDays)),
       ovulationDate: ovulation,
-      confidenceScore: _calculateConfidence(deviation, logs.length),
+      confidenceScore: _calculateConfidence(
+        deviation,
+        calculatedLengths.length,
+      ),
+      averageCycleLength: calculatedAvg,
     );
   }
 
@@ -109,10 +122,12 @@ class PredictionEngine {
   }
 
   static int _calculateConfidence(double deviation, int count) {
-    // Confidence calculation: If deviation is low (regular cycles) and count is high, confidence is high
-    if (count < 3) return 40; // Needs more data
-    if (deviation < 2.0) return 90; // Very Regular
-    if (deviation < 4.0) return 75; // Normal
-    return 60; // Irregular
+    if (count < 3) return 40; // Calibrating
+
+    if (deviation < 1.0) return 95; // Extremely stable (Elena)
+    if (deviation < 2.0) return 85; // Very stable
+    if (deviation < 4.0) return 65; // Moderate/Irregular (Luna)
+    if (deviation < 7.0) return 45; // Highly irregular
+    return 30; // Chaos
   }
 }
