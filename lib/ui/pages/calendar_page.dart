@@ -38,13 +38,33 @@ class _CalendarPageState extends State<CalendarPage> {
         (d.isAtSameMomentAs(e) || d.isBefore(e));
   }
 
+  // Old implementation
+  // bool _isPredictedDay(DateTime date) {
+  //   if (controller.predictedStartDate.value.year == 0) return false;
+  //   for (int i = 0; i < 6; i++) {
+  //     DateTime pStart = controller.predictedStartDate.value.add(
+  //       Duration(days: i * _baseline),
+  //     );
+  //     DateTime pEnd = pStart.add(const Duration(days: 4));
+  //     if (_isDateInRange(date, pStart, pEnd)) return true;
+  //   }
+  //   return false;
+  // }
+
+  // This method now uses the dynamic ML average
   bool _isPredictedDay(DateTime date) {
     if (controller.predictedStartDate.value.year == 0) return false;
+
+    // Check next 6 cycles
     for (int i = 0; i < 6; i++) {
+      // Use controller.averageCycleLength.value instead of _baseline
       DateTime pStart = controller.predictedStartDate.value.add(
-        Duration(days: i * _baseline),
+        Duration(days: i * controller.averageCycleLength.value),
       );
+
+      // Creating a 5-day window around the start date
       DateTime pEnd = pStart.add(const Duration(days: 4));
+
       if (_isDateInRange(date, pStart, pEnd)) return true;
     }
     return false;
@@ -187,7 +207,7 @@ class _CalendarPageState extends State<CalendarPage> {
         ],
       ),
       body: Obx(() {
-        final allLogs = controller.allLogs.reversed.toList();
+        final allLogs = controller.allLogs.toList();
         final displayedLogs = allLogs.take(_displayLimit).toList();
 
         return SingleChildScrollView(

@@ -156,9 +156,10 @@ class InsightsScreen extends StatelessWidget {
         );
       }
       return Column(
-        children: List.generate(2, (index) {
+        children: List.generate(3, (index) {
+          // Replaced hardcoded '28' with 'controller.averageCycleLength.value'
           final date = controller.predictedStartDate.value.add(
-            Duration(days: index * 28),
+            Duration(days: (index + 1) * controller.averageCycleLength.value),
           );
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
@@ -170,7 +171,8 @@ class InsightsScreen extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
+                  // "Predicted Start",
                   "Predicted Start",
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
