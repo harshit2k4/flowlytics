@@ -83,4 +83,39 @@ class AppStrings {
 
   static const String legalDisclaimer =
       "Legal Disclaimer: This document was generated locally. Once exported, data security is the sole responsibility of the user. Flowlytics are not liable for unauthorized sharing.";
+
+  // FAQ
+  // Detailed FAQ Data for Flowlytics
+  static const List<Map<String, String>> faqs = [
+    {
+      "q": "Is Flowlytics truly private and offline?",
+      "a":
+          "Yes. Flowlytics operates with zero internet permissions. There are no remote servers, no trackers, and no cloud backups. Your data lives exclusively in the encrypted vault on your physical device. If you lose your phone, your data is gone—this is the price of total privacy.",
+    },
+    {
+      "q": "What happens if I forget my Security Answer?",
+      "a":
+          "Because we are 100% offline, there is no 'Reset Password' link. Your security answer is the only key to the vault. If you forget it, your data is permanently unrecoverable by design. We have no backdoor to help you.",
+    },
+    {
+      "q": "How accurate is the 'Navigator' vs. Real Biology?",
+      "a":
+          "The Navigator uses ML to nudge dates based on symptoms like spotting or cramps. However, human biology is not a calculator. Stress, illness, and travel can shift cycles in ways no algorithm can predict. Always listen to your body first.",
+    },
+    {
+      "q": "Is the App Lock and Biometrics secure?",
+      "a":
+          "We utilize your device's native hardware security for biometrics. While highly secure, no system is impenetrable. Using biometrics is at your own risk; if your device hardware is compromised, your local vault could be at risk.",
+    },
+    {
+      "q": "Who is responsible for my exported PDF reports?",
+      "a":
+          "Once you export a Wellness Report, it is a standard PDF. If you share it via unencrypted channels like Email or WhatsApp, you are sharing sensitive medical data. Flowlytics is not responsible for the security of your data once it leaves the app's environment.",
+    },
+    {
+      "q": "Why does the app need no permissions?",
+      "a":
+          "We believe your cycle is your business. By requiring no internet, we ensure that even if our company were sold or hacked, your data remains safely on your own phone, inaccessible to anyone but you.",
+    },
+  ];
 }
