@@ -1,6 +1,8 @@
 import 'package:flowlytics/core/theme/app_theme.dart';
 import 'package:flowlytics/logic/controllers/theme_controller.dart';
 import 'package:flowlytics/logic/services/backup_service.dart';
+import 'package:flowlytics/ui/me/legal/disclaimer_screen.dart';
+import 'package:flowlytics/ui/me/legal/faq_screen.dart';
 import 'package:flowlytics/ui/security/security_setup_screen.dart';
 import 'package:flowlytics/ui/widgets/glass_snackbar.dart';
 import 'package:flowlytics/ui/widgets/wellness_report_modal.dart';
@@ -365,6 +367,33 @@ class _MeScreenState extends State<MeScreen> {
                     ),
                   ]),
 
+                  const SizedBox(height: 20),
+                  // DISCLAIMER
+                  _buildSectionHeader("Support & Legal"),
+                  _buildSettingsGroup(context, [
+                    _buildTile(
+                      context,
+                      Icons.help_center_outlined,
+                      "Frequently Asked Questions",
+                      "Understanding the logic & privacy",
+                      () => Get.to(
+                        () => const FAQScreen(),
+                        transition: Transition.rightToLeftWithFade,
+                      ),
+                      iconColor: Colors.blueAccent,
+                    ),
+                    _buildTile(
+                      context,
+                      Icons.description_outlined,
+                      "Legal Disclaimer",
+                      "Terms of use & medical notice",
+                      () => Get.to(
+                        () => const DisclaimerScreen(),
+                        transition: Transition.rightToLeftWithFade,
+                      ),
+                      iconColor: Colors.blueGrey,
+                    ),
+                  ]),
                   const SizedBox(height: 32),
 
                   // Wipe data zone
