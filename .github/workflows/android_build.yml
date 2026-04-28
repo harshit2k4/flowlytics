@@ -1,0 +1,74 @@
+name: flowlytics android pre-release build
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true # Faster builds
+
+      - name: Flutter Clean & Pub Get
+        run: |
+          flutter clean
+          flutter pub get
+
+      - name: Generate Hive Adapters
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build ARM64 Release APK
+        # Added --no-tree-shake-icons for stability
+        # Added --quiet to keep logs clean/private
+        # run: flutter build apk --release --target-platform android-arm64 --no-tree-shake-icons --quiet
+        run: flutter build apk --release --target-platform android-arm64
+
+      - name: Get Commit Info
+        id: commit_info
+        run: |
+          echo "msg=$(git log -1 --pretty=%B | head -n 1)" >> $GITHUB_OUTPUT
+          echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set Build Date UTC
+        id: build_date
+        run: echo "date=$(date --utc +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
+
+      - name: Rename APK
+        run: |
+          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
+             build/app/outputs/flutter-apk/flowlytics-arm64-${{ steps.commit_info.outputs.short_sha }}.apk
+
+      - name: Create Draft Pre-Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: true
+          name: "Flowlytics Beta (Build ${{ github.run_number }})"
+          tag_name: "v0.0.${{ github.run_number }}-beta"
+          body: |
+            ### Release Details
+            **Commit Message:** ${{ steps.commit_info.outputs.msg }}
+            **Commit Hash:** ${{ steps.commit_info.outputs.short_sha }}
+            **Build Date (UTC):** ${{ steps.build_date.outputs.date }}
+          files: build/app/outputs/flutter-apk/flowlytics-arm64-${{ steps.commit_info.outputs.short_sha }}.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
