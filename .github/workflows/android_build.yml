@@ -28,6 +28,16 @@ jobs:
           channel: 'stable'
           cache: true # Faster builds
 
+      - name: Inject Configuration
+        run: |
+          # Inject Keys
+          mkdir -p lib/keys
+          echo "${{ secrets.SECURITY_CONFIG_CONTENT }}" > lib/keys/security_config.dart
+          
+          # Inject ProGuard Rules
+          mkdir -p android/app
+          echo "${{ secrets.PROGUARD_RULES_CONTENT }}" > android/app/proguard-rules.pro
+
       - name: Flutter Clean & Pub Get
         run: |
           flutter clean
