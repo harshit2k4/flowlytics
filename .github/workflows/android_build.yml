@@ -68,8 +68,9 @@ jobs:
 
       - name: Rename apk
         run: |
-          mv build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
-             build/app/outputs/flutter-apk/flowlytics-arm64-${{ steps.commit_info.outputs.short_sha }}.apk
+          cd build/app/outputs/flutter-apk/
+          mv *.apk flowlytics-arm64-${{ steps.commit_info.outputs.short_sha }}.apk
+          echo "Final APK path: build/app/outputs/flutter-apk/flowlytics-arm64-${{ steps.commit_info.outputs.short_sha }}.apk"
 
       - name: Create draft pre-release
         uses: softprops/action-gh-release@v2
