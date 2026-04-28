@@ -28,15 +28,19 @@ jobs:
           channel: 'stable'
           cache: true # Faster builds
 
-      - name: Inject Configuration
+      - name: Inject Sensitive Configuration
+        env:
+          # Pass the secrets as environment variables to the shell
+          SECURITY_CONFIG: ${{ secrets.SECURITY_CONFIG_CONTENT }}
+          PROGUARD_RULES: ${{ secrets.PROGUARD_RULES_CONTENT }}
         run: |
-          # Inject Keys
           mkdir -p lib/keys
-          echo "${{ secrets.SECURITY_CONFIG_CONTENT }}" > lib/keys/security_config.dart
-          
-          # Inject ProGuard Rules
           mkdir -p android/app
-          echo "${{ secrets.PROGUARD_RULES_CONTENT }}" > android/app/proguard-rules.pro
+
+          echo "$SECURITY_CONFIG" > lib/keys/security_config.dart
+          echo "$PROGUARD_RULES" > android/app/proguard-rules.pro
+          
+          ls -l lib/keys/security_config.dart
 
       - name: Flutter Clean & Pub Get
         run: |
