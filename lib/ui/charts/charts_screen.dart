@@ -66,104 +66,230 @@ class ChartsScreen extends StatelessWidget {
     );
   }
 
+  // Widget _buildMD3BarChart(BuildContext context, List<PeriodLog> logs) {
+  //   double avgCycle =
+  //       logs.map((l) => l.cycleLength).reduce((a, b) => a + b) / logs.length;
+
+  //   return SizedBox(
+  //     height: 220,
+  //     child: BarChart(
+  //       BarChartData(
+  //         alignment: BarChartAlignment.spaceAround,
+  //         maxY: 45,
+  //         barTouchData: BarTouchData(
+  //           enabled: true,
+  //           touchTooltipData: BarTouchTooltipData(
+  //             getTooltipColor: (_) =>
+  //                 Theme.of(context).colorScheme.secondaryContainer,
+  //             getTooltipItem: (group, groupIndex, rod, rodIndex) {
+  //               return BarTooltipItem(
+  //                 "${rod.toY.toInt()} Days",
+  //                 TextStyle(
+  //                   color: Theme.of(context).colorScheme.onSecondaryContainer,
+  //                   fontWeight: FontWeight.bold,
+  //                 ),
+  //               );
+  //             },
+  //           ),
+  //         ),
+  //         titlesData: FlTitlesData(
+  //           show: true,
+  //           bottomTitles: AxisTitles(
+  //             sideTitles: SideTitles(
+  //               showTitles: true,
+  //               getTitlesWidget: (v, m) => Padding(
+  //                 padding: const EdgeInsets.only(top: 8.0),
+  //                 child: Text(
+  //                   "C${v.toInt() + 1}",
+  //                   style: TextStyle(
+  //                     fontSize: 10,
+  //                     color: Theme.of(context).colorScheme.outline,
+  //                   ),
+  //                 ),
+  //               ),
+  //             ),
+  //           ),
+  //           leftTitles: const AxisTitles(
+  //             sideTitles: SideTitles(showTitles: false),
+  //           ),
+  //           topTitles: const AxisTitles(
+  //             sideTitles: SideTitles(showTitles: false),
+  //           ),
+  //           rightTitles: const AxisTitles(
+  //             sideTitles: SideTitles(showTitles: false),
+  //           ),
+  //         ),
+  //         gridData: FlGridData(
+  //           show: true,
+  //           drawVerticalLine: false,
+  //           getDrawingHorizontalLine: (value) {
+  //             if ((value - avgCycle).abs() < 0.5) {
+  //               return FlLine(
+  //                 color: Theme.of(
+  //                   context,
+  //                 ).colorScheme.tertiary.withOpacity(0.5),
+  //                 strokeWidth: 2,
+  //                 dashArray: [4, 4],
+  //               );
+  //             }
+  //             return const FlLine(color: Colors.transparent);
+  //           },
+  //         ),
+  //         borderData: FlBorderData(show: false),
+  //         barGroups: logs.asMap().entries.map((entry) {
+  //           int days = entry.value.cycleLength;
+  //           // MD3 Logic: Use Error role for outliers, Primary for normal
+  //           bool isOutlier = days < 21 || days > 35;
+
+  //           return BarChartGroupData(
+  //             x: entry.key,
+  //             barRods: [
+  //               BarChartRodData(
+  //                 toY: days.toDouble().clamp(0, 45),
+  //                 color: isOutlier
+  //                     ? Theme.of(context).colorScheme.error
+  //                     : Theme.of(context).colorScheme.primary,
+  //                 width: 18,
+  //                 borderRadius: const BorderRadius.vertical(
+  //                   top: Radius.circular(6),
+  //                 ),
+  //                 backDrawRodData: BackgroundBarChartRodData(
+  //                   show: true,
+  //                   toY: 45,
+  //                   color: Theme.of(
+  //                     context,
+  //                   ).colorScheme.surfaceVariant.withOpacity(0.3),
+  //                 ),
+  //               ),
+  //             ],
+  //           );
+  //         }).toList(),
+  //       ),
+  //     ),
+  //   );
+  // }
+
   Widget _buildMD3BarChart(BuildContext context, List<PeriodLog> logs) {
     double avgCycle =
         logs.map((l) => l.cycleLength).reduce((a, b) => a + b) / logs.length;
 
+    // Calculate how much space the chart needs
+    // We subtract 48 to account for the 24 padding on the left and right of the screen
+    double screenWidth = MediaQuery.of(context).size.width - 48;
+
+    // Assign 45 pixels of space per bar (18 for the bar + 27 for spacing)
+    double requiredWidth = logs.length * 45.0;
+
+    // If we have few logs, use the screen width. If we have many, use the larger required width.
+    double finalChartWidth = requiredWidth > screenWidth
+        ? requiredWidth
+        : screenWidth;
+
     return SizedBox(
       height: 220,
-      child: BarChart(
-        BarChartData(
-          alignment: BarChartAlignment.spaceAround,
-          maxY: 45,
-          barTouchData: BarTouchData(
-            enabled: true,
-            touchTooltipData: BarTouchTooltipData(
-              getTooltipColor: (_) =>
-                  Theme.of(context).colorScheme.secondaryContainer,
-              getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                return BarTooltipItem(
-                  "${rod.toY.toInt()} Days",
-                  TextStyle(
-                    color: Theme.of(context).colorScheme.onSecondaryContainer,
-                    fontWeight: FontWeight.bold,
-                  ),
-                );
-              },
-            ),
-          ),
-          titlesData: FlTitlesData(
-            show: true,
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                getTitlesWidget: (v, m) => Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    "C${v.toInt() + 1}",
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Theme.of(context).colorScheme.outline,
+      // Wrap with horizontal scroll
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        reverse:
+            true, // This forces the scroll to start at the right edge (latest data)
+        physics: const BouncingScrollPhysics(),
+        child: SizedBox(
+          width: finalChartWidth,
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: 45,
+              barTouchData: BarTouchData(
+                enabled: true,
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipColor: (_) =>
+                      Theme.of(context).colorScheme.secondaryContainer,
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    return BarTooltipItem(
+                      "${rod.toY.toInt()} Days",
+                      TextStyle(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSecondaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              titlesData: FlTitlesData(
+                show: true,
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (v, m) => Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        "C${v.toInt() + 1}",
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-            leftTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-            rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false),
-            ),
-          ),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            getDrawingHorizontalLine: (value) {
-              if ((value - avgCycle).abs() < 0.5) {
-                return FlLine(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.tertiary.withOpacity(0.5),
-                  strokeWidth: 2,
-                  dashArray: [4, 4],
-                );
-              }
-              return const FlLine(color: Colors.transparent);
-            },
-          ),
-          borderData: FlBorderData(show: false),
-          barGroups: logs.asMap().entries.map((entry) {
-            int days = entry.value.cycleLength;
-            // MD3 Logic: Use Error role for outliers, Primary for normal
-            bool isOutlier = days < 21 || days > 35;
-
-            return BarChartGroupData(
-              x: entry.key,
-              barRods: [
-                BarChartRodData(
-                  toY: days.toDouble().clamp(0, 45),
-                  color: isOutlier
-                      ? Theme.of(context).colorScheme.error
-                      : Theme.of(context).colorScheme.primary,
-                  width: 18,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(6),
-                  ),
-                  backDrawRodData: BackgroundBarChartRodData(
-                    show: true,
-                    toY: 45,
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceVariant.withOpacity(0.3),
-                  ),
+                leftTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
                 ),
-              ],
-            );
-          }).toList(),
+                topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+              ),
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                getDrawingHorizontalLine: (value) {
+                  if ((value - avgCycle).abs() < 0.5) {
+                    return FlLine(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.tertiary.withOpacity(0.5),
+                      strokeWidth: 2,
+                      dashArray: [4, 4],
+                    );
+                  }
+                  return const FlLine(color: Colors.transparent);
+                },
+              ),
+              borderData: FlBorderData(show: false),
+              barGroups: logs.asMap().entries.map((entry) {
+                int days = entry.value.cycleLength;
+                bool isOutlier = days < 21 || days > 35;
+
+                return BarChartGroupData(
+                  x: entry.key,
+                  barRods: [
+                    BarChartRodData(
+                      toY: days.toDouble().clamp(0, 45),
+                      color: isOutlier
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.primary,
+                      width: 18,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(6),
+                      ),
+                      backDrawRodData: BackgroundBarChartRodData(
+                        show: true,
+                        toY: 45,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceVariant.withOpacity(0.3),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
         ),
       ),
     );
