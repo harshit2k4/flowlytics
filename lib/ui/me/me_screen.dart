@@ -9,6 +9,7 @@ import 'package:flowlytics/ui/widgets/wellness_report_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
+import '../../core/constants/app_strings.dart';
 import '../../logic/controllers/period_controller.dart';
 import '../../logic/controllers/security_controller.dart';
 import '../insights/insights_screen.dart';
@@ -350,6 +351,15 @@ class _MeScreenState extends State<MeScreen> {
                     const Divider(height: 1, indent: 56),
                     _buildTile(
                       context,
+                      Icons.history_rounded,
+                      "Release Notes",
+                      "What's new in version 0.1.0",
+                      () => _showChangelog(context), // Calling the popup
+                      iconColor: Colors.yellowAccent,
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    _buildTile(
+                      context,
                       Icons.description_outlined,
                       "OSS Licenses",
                       "Open source credits",
@@ -457,6 +467,97 @@ class _MeScreenState extends State<MeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showChangelog(BuildContext context) {
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.auto_awesome_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    "What's New",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              ...AppStrings.changelog.map(
+                (entry) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Version ${entry['version']}",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...(entry['changes'] as List<String>).map(
+                      (change) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "• ",
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                change,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Get.back(),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text("Got it"),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

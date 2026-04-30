@@ -118,4 +118,20 @@ class AppStrings {
           "We believe your cycle is your business. By requiring no internet, we ensure that even if our company were sold or hacked, your data remains safely on your own phone, inaccessible to anyone but you.",
     },
   ];
+
+  // Release History
+  static const List<Map<String, dynamic>> changelog = [
+    {
+      "version": "0.1.0",
+      // "date": "Month and Year",
+      "changes": [
+        "Initial release of Flowlytics",
+        "Customised ML-algorithm for cycle predictions",
+        "Private local encryption vault",
+        "Scrollable charts for analytics",
+        "Biometric & PIN security lock",
+        "Classic pink theme with custom moods",
+      ],
+    },
+  ];
 }
