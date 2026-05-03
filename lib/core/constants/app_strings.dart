@@ -134,4 +134,8 @@ class AppStrings {
       ],
     },
   ];
+
+  // Hormone Graph Easter Egg
+  static const String hormoneGraphEasterEgg =
+      "This wave shows your hidden energy. Estrogen brings creativity and focus, the Testosterone spike brings confidence, and Progesterone acts as your body's natural relaxation signal. Listen to the waves!";
 }

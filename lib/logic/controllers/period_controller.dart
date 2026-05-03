@@ -117,6 +117,25 @@ class PeriodController extends GetxController {
     updateCycleReminder();
   }
 
+  int get currentCycleDay {
+    if (allLogs.isEmpty) return 1;
+
+    // Find the most recent log (assuming they are sorted newest to oldest)
+    // If list is oldest to newest, use allLogs.last
+    final lastPeriod = allLogs.first;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final start = DateTime(
+      lastPeriod.startDate.year,
+      lastPeriod.startDate.month,
+      lastPeriod.startDate.day,
+    );
+
+    // We add 1 because the first day of the period is "Day 1"
+    return today.difference(start).inDays + 1;
+  }
+
   void refreshDailyLog() {
     if (_logBox.isEmpty) {
       todayLog.value = null;

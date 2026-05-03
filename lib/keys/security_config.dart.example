@@ -6,5 +6,5 @@ class SecurityConfig {
   static const String backupSecretKey = "dummy_key_do_not_use_in_production";
 
   // The backupIv must be exactly 16 characters long.
-  static const String backupIv = "fL0w_Iv_2026_xyz_";
+  static const String backupIv = "dont_use_in_prod";
 }
