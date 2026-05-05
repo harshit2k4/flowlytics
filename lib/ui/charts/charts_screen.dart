@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../logic/controllers/period_controller.dart';
 import '../../data/models/period_log.dart';
+import '../widgets/hormone_forecast_card.dart';
 
 class ChartsScreen extends StatelessWidget {
   const ChartsScreen({super.key});
@@ -56,6 +57,17 @@ class ChartsScreen extends StatelessWidget {
                     const SizedBox(height: 24),
                     _buildReassuranceFooter(context),
                     const SizedBox(height: 40),
+                    Obx(() {
+                      // Only show the card if we have logs to calculate from
+                      if (controller.allLogs.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return HormoneForecastCard(
+                        currentCycleDay: controller.currentCycleDay,
+                        averageCycleLength: controller.averageCycleLength.value,
+                      );
+                    }),
+                    const SizedBox(height: 24),
                   ],
                 );
               }),
