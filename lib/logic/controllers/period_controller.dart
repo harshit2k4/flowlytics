@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flowlytics/data/models/daily_log.dart';
 import 'package:flowlytics/logic/controllers/security_controller.dart';
 import 'package:flowlytics/logic/services/enhanced_navigator_engine.dart';
