@@ -5,6 +5,7 @@ import 'package:flowlytics/ui/me/legal/disclaimer_screen.dart';
 import 'package:flowlytics/ui/me/legal/faq_screen.dart';
 import 'package:flowlytics/ui/security/security_setup_screen.dart';
 import 'package:flowlytics/ui/widgets/glass_snackbar.dart';
+import 'package:flowlytics/ui/widgets/security_reauth_gate.dart';
 import 'package:flowlytics/ui/widgets/wellness_report_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -971,17 +972,38 @@ class _MeScreenState extends State<MeScreen> {
   void _showDeleteDialog(BuildContext context, PeriodController controller) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text("Confirm Wipe?"),
         content: const Text(
           "This acts as an emergency reset. All logs and your name's history will be deleted.",
         ),
         actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text("Cancel"),
+          ),
           TextButton(
             onPressed: () async {
-              // Close the dialog first
-              Get.back();
+              // Close this confirmation dialog using its own (correctly
+              // scoped) context. Once popped, dialogContext is no longer
+              // valid and must not be used again below.
+              Navigator.of(dialogContext).pop();
+
+              // Everything from here on must use the outer screen context
+              // (still valid — MeScreen itself hasn't been unmounted),
+              // never dialogContext.
+
+              // If App Lock is enabled, require PIN re-entry before this
+              // destructive action runs. If App Lock is not enabled, the
+              // gate resolves to true immediately (nothing to re-check).
+              final bool verified = await SecurityReauthGate.require(
+                context,
+                title: "Confirm Wipe",
+                message: "Enter your PIN to permanently delete all data.",
+              );
+              if (!verified) return;
+              if (!mounted) return;
+
               // Perform the data wipe
               await controller.wipeData();
               // Check if the widget is still in the tree before calling setState

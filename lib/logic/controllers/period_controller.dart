@@ -459,7 +459,7 @@ class PeriodController extends GetxController {
   }
 
   Future<void> injectElenaFullYear() async {
-    await wipeAllData();
+    await _wipeForMockInjection();
 
     // 1. Force state to "Not First Run" so main.dart shows NavWrapper
     await _settingsBox.put('has_completed_onboarding', false);
@@ -500,7 +500,7 @@ class PeriodController extends GetxController {
   }
 
   Future<void> injectLunaFullYear() async {
-    await wipeAllData();
+    await _wipeForMockInjection();
 
     await _settingsBox.put('has_completed_onboarding', false);
     isFirstRun.value = false;
@@ -603,8 +603,13 @@ class PeriodController extends GetxController {
     }
   }
 
-  // wipe all data (alternative of wipedata())
-  Future<void> wipeAllData() async {
+  // Internal reset used ONLY by the mock-data injectors below
+  // (injectTestData / injectElenaFullYear / injectLunaFullYear).
+  // Deliberately private: the real user-facing "wipe everything" flow
+  // must go through wipeData(), which also clears settings, resets
+  // onboarding state, and navigates home. This method does none of
+  // that and must never be reachable from production UI.
+  Future<void> _wipeForMockInjection() async {
     await _logBox.clear();
     await _dailyBox.clear();
     allLogs.clear();
@@ -618,7 +623,13 @@ class PeriodController extends GetxController {
     try {
       final securityController = Get.find<SecurityController>();
       await securityController.resetSecurity();
-    } catch (_) {}
+    } catch (e) {
+      // Don't silently swallow this — a failed security reset during a
+      // wipe should be visible in dev, even for a test-only helper.
+      debugPrint(
+        "PeriodController._wipeForMockInjection: security reset failed: $e",
+      );
+    }
   }
 
   // sync data after logs are imported
