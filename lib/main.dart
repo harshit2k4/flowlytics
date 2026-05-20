@@ -38,9 +38,6 @@ void main() async {
   // Open the box to store settings (Name, Onboarding status, etc.)
   await Hive.openBox('settings_box');
 
-  // Initialize the controller
-  final controller = Get.put(PeriodController());
-
   Get.put(ThemeController(), permanent: true);
 
   // Register all controllers globally on app start
