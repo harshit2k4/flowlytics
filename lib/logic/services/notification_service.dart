@@ -87,7 +87,20 @@ class NotificationService {
   void _handleNotificationTap(String? payload) {
     if (payload == null) return;
 
-    Future.delayed(const Duration(milliseconds: 200), () {
+    Future.delayed(const Duration(milliseconds: 200), () async {
+      // On a cold start via a tapped notification, this can run before
+      // main() has finished registering controllers (Hive init + box
+      // opens happen first and are not instant on every device). Wait
+      // for the controllers this handler needs rather than assuming
+      // they're already there.
+      final bool ready = await _waitForControllers();
+      if (!ready) {
+        debugPrint(
+          "NotificationService: controllers not ready in time, dropping notification tap for payload: $payload",
+        );
+        return;
+      }
+
       final nav = Get.find<NavigationController>();
 
       if (payload == 'period_reminder') {
@@ -106,6 +119,28 @@ class NotificationService {
         Get.to(() => const InsightsScreen());
       }
     });
+  }
+
+  // Polls until the controllers _handleNotificationTap depends on are
+  // registered, or gives up after [timeout]. Checking both here (rather
+  // than just NavigationController) also covers _triggerComfortFlow's
+  // Get.find<SecurityController>() call further down the same flow.
+  Future<bool> _waitForControllers({
+    Duration timeout = const Duration(seconds: 5),
+    Duration pollInterval = const Duration(milliseconds: 100),
+  }) async {
+    final DateTime deadline = DateTime.now().add(timeout);
+
+    while (DateTime.now().isBefore(deadline)) {
+      if (Get.isRegistered<NavigationController>() &&
+          Get.isRegistered<SecurityController>()) {
+        return true;
+      }
+      await Future.delayed(pollInterval);
+    }
+
+    return Get.isRegistered<NavigationController>() &&
+        Get.isRegistered<SecurityController>();
   }
 
   void _triggerComfortFlow() {
@@ -267,21 +302,35 @@ class NotificationService {
     required DateTime scheduledDate,
     String? payload, // decides which notification will be tapped
   }) async {
-    await _notifications.zonedSchedule(
-      id,
-      title,
-      body,
-      tz.TZDateTime.from(scheduledDate, tz.local),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'cycle_alerts',
-          'Cycle Predictions',
+    try {
+      await _notifications.zonedSchedule(
+        id,
+        title,
+        body,
+        tz.TZDateTime.from(scheduledDate, tz.local),
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'cycle_alerts',
+            'Cycle Predictions',
+          ),
         ),
-      ),
-      payload: payload, // Make sure this is passed
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
+        payload: payload, // Make sure this is passed
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (e) {
+      // Exact-alarm scheduling can throw a PlatformException if the user
+      // has revoked "Alarms & reminders" (Android 12+) or on some OEM
+      // skins where it's off by default. Callers such as
+      // PeriodController.updateCycleReminder() call this without
+      // awaiting it, so an uncaught exception here would surface as an
+      // unhandled Future error rather than something the caller can
+      // catch. Failing to schedule a reminder should not be able to
+      // crash onboarding or the home-screen refresh flow.
+      debugPrint(
+        "NotificationService: failed to schedule notification $id: $e",
+      );
+    }
   }
 }
