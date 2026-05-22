@@ -17,11 +17,19 @@ class SecurityController extends GetxController with WidgetsBindingObserver {
   // Hardware capabilities
   var canCheckBiometrics = false.obs;
 
-  // Cooldown Tracking
+  // Cooldown Tracking (PIN)
   var lockoutEndTime = Rxn<DateTime>();
 
+  // Recovery-answer attempts and cooldown are tracked separately from the
+  // PIN's, and more leniently (cooldown starts later, hard lock ceiling is
+  // higher) -- see isRecoveryHardLocked and _calculateRecoveryCooldown.
+  // A wrong PIN does not count against this, and a wrong recovery answer
+  // does not count against the PIN's failedAttempts.
+  var recoveryFailedAttempts = 0.obs;
+  var recoveryLockoutEndTime = Rxn<DateTime>();
+
   @override
-  void onInit() async {
+  void onInit() {
     super.onInit();
     WidgetsBinding.instance.addObserver(this);
 
@@ -41,10 +49,28 @@ class SecurityController extends GetxController with WidgetsBindingObserver {
       lockoutEndTime.value = DateTime.parse(savedTime);
     }
 
-    // Check hardware support immediately
-    await _checkBiometricSupport();
+    recoveryFailedAttempts.value = _settingsBox.get(
+      'recovery_failed_attempts',
+      defaultValue: 0,
+    );
+    final savedRecoveryTime = _settingsBox.get('recovery_lockout_end_time');
+    if (savedRecoveryTime != null) {
+      recoveryLockoutEndTime.value = DateTime.parse(savedRecoveryTime);
+    }
 
+    // Decide the lock state synchronously, immediately. This must happen
+    // before any async work below: SecurityGuard reacts to isLocked the
+    // instant it changes, so if this were delayed behind an await, the
+    // app could briefly render unlocked content on cold start while
+    // that async work was still in flight.
     if (isLockEnabled.value) isLocked.value = true;
+
+    // Hardware capability check is genuinely async (platform channel)
+    // and only affects whether the fingerprint/face-unlock option is
+    // offered on the lock screen -- it does not gate whether the app is
+    // locked. Safe to resolve in the background; it already handles its
+    // own errors internally.
+    _checkBiometricSupport();
   }
 
   // --- BIOMETRIC LOGIC ---
@@ -148,13 +174,29 @@ class SecurityController extends GetxController with WidgetsBindingObserver {
 
   bool get isHardLocked => failedAttempts.value >= 7;
 
+  // More lenient than the PIN's: higher hard-lock ceiling and cooldown
+  // starts later, since recalling a security answer has more legitimate
+  // friction (phrasing, capitalization) than a memorized PIN.
+  bool get isRecoveryHardLocked => recoveryFailedAttempts.value >= 12;
+
   int getRemainingCooldownSeconds() {
     if (lockoutEndTime.value == null) return 0;
-    final diff = lockoutEndTime.value!.difference(DateTime.now()).inSeconds;
-    return diff > 0 ? diff : 0;
+    // Round up: truncating to whole seconds reported 0 while up to a
+    // second of the lockout was still left, ending it early.
+    final ms = lockoutEndTime.value!.difference(DateTime.now()).inMilliseconds;
+    return ms > 0 ? (ms / 1000).ceil() : 0;
+  }
+
+  int getRecoveryRemainingCooldownSeconds() {
+    if (recoveryLockoutEndTime.value == null) return 0;
+    final ms = recoveryLockoutEndTime.value!
+        .difference(DateTime.now())
+        .inMilliseconds;
+    return ms > 0 ? (ms / 1000).ceil() : 0;
   }
 
   bool verifyPin(String inputPin) {
+    if (isHardLocked) return false;
     if (getRemainingCooldownSeconds() > 0) return false;
 
     final storedHash = _settingsBox.get('app_pin');
@@ -178,13 +220,33 @@ class SecurityController extends GetxController with WidgetsBindingObserver {
       seconds = 60;
     else if (failedAttempts.value == 5)
       seconds = 300;
-    else if (failedAttempts.value == 6)
+    else if (failedAttempts.value >= 6)
       seconds = 600;
 
     if (seconds > 0) {
       final end = DateTime.now().add(Duration(seconds: seconds));
       lockoutEndTime.value = end;
       _settingsBox.put('lockout_end_time', end.toIso8601String());
+    }
+  }
+
+  // Same shape as _calculateCooldown(), shifted later (starts at attempt
+  // 6 instead of 3) to match the higher, more lenient hard-lock ceiling.
+  void _calculateRecoveryCooldown() {
+    int seconds = 0;
+    if (recoveryFailedAttempts.value == 6)
+      seconds = 30;
+    else if (recoveryFailedAttempts.value == 7)
+      seconds = 60;
+    else if (recoveryFailedAttempts.value == 8)
+      seconds = 300;
+    else if (recoveryFailedAttempts.value >= 9)
+      seconds = 600;
+
+    if (seconds > 0) {
+      final end = DateTime.now().add(Duration(seconds: seconds));
+      recoveryLockoutEndTime.value = end;
+      _settingsBox.put('recovery_lockout_end_time', end.toIso8601String());
     }
   }
 
@@ -195,14 +257,37 @@ class SecurityController extends GetxController with WidgetsBindingObserver {
     _settingsBox.delete('lockout_end_time');
   }
 
+  void _resetRecoveryAttempts() {
+    recoveryFailedAttempts.value = 0;
+    _settingsBox.put('recovery_failed_attempts', 0);
+    recoveryLockoutEndTime.value = null;
+    _settingsBox.delete('recovery_lockout_end_time');
+  }
+
   bool verifyRecoveryAnswer(String inputAnswer) {
+    if (isRecoveryHardLocked) return false;
+    if (getRecoveryRemainingCooldownSeconds() > 0) return false;
+
     final storedAnswerHash = _settingsBox.get('security_answer');
     if (_hashPin(inputAnswer.toLowerCase().trim()) == storedAnswerHash) {
+      // A successful recovery is a full re-entry point, so it clears
+      // both lockouts -- not just its own.
       _resetAttempts();
+      _resetRecoveryAttempts();
       isLocked.value = false;
       return true;
+    } else {
+      // Tracked entirely separately from the PIN's failedAttempts: a
+      // wrong recovery answer no longer counts against the PIN, and
+      // vice versa.
+      recoveryFailedAttempts.value++;
+      _settingsBox.put(
+        'recovery_failed_attempts',
+        recoveryFailedAttempts.value,
+      );
+      _calculateRecoveryCooldown();
+      return false;
     }
-    return false;
   }
 
   Future<void> savePin(String pin, String question, String answer) async {
@@ -229,6 +314,7 @@ class SecurityController extends GetxController with WidgetsBindingObserver {
     isLockEnabled.value = false;
     isLocked.value = false;
     _resetAttempts();
+    _resetRecoveryAttempts();
   }
 
   String _hashPin(String pin) {
