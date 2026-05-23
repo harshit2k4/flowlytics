@@ -20,10 +20,14 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
   final TextEditingController _answerController = TextEditingController();
   final TextEditingController _recoveryInputController =
       TextEditingController();
+  // See _buildGlassyField's fieldKey param: bumped on every failed
+  // recovery attempt so the field's key actually changes.
+  int _recoveryFieldGeneration = 0;
 
   late String _viewState;
   Timer? _cooldownTimer;
   int _displayCooldown = 0;
+  int _displayRecoveryCooldown = 0;
 
   @override
   void initState() {
@@ -54,7 +58,14 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
   void _startCooldownListener() {
     _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       final rem = _securityController.getRemainingCooldownSeconds();
-      if (rem != _displayCooldown) setState(() => _displayCooldown = rem);
+      final recoveryRem = _securityController
+          .getRecoveryRemainingCooldownSeconds();
+      if (rem != _displayCooldown || recoveryRem != _displayRecoveryCooldown) {
+        setState(() {
+          _displayCooldown = rem;
+          _displayRecoveryCooldown = recoveryRem;
+        });
+      }
     });
   }
 
@@ -124,7 +135,11 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
               _viewState = 'manage';
             });
           } else {
-            setState(() => _pin = "");
+            setState(() {
+              _pin = "";
+              _displayCooldown = _securityController
+                  .getRemainingCooldownSeconds();
+            });
             _showGlassSnackBar(
               _securityController.isHardLocked
                   ? "Locked. Use ID Verification."
@@ -307,6 +322,9 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
             "Your Answer",
             "Type here...",
             colorScheme,
+            fieldKey: isSetup
+                ? null
+                : ValueKey("recovery_answer_field_$_recoveryFieldGeneration"),
           ),
           const SizedBox(height: 40),
           SizedBox(
@@ -323,6 +341,15 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
                   Get.back();
                   _showGlassSnackBar("Security Active");
                 } else {
+                  if (_displayRecoveryCooldown > 0 ||
+                      _securityController.isRecoveryHardLocked) {
+                    _showGlassSnackBar(
+                      "Too many attempts. Try again later.",
+                      isError: true,
+                    );
+                    return;
+                  }
+
                   if (_securityController.verifyRecoveryAnswer(
                     _recoveryInputController.text,
                   )) {
@@ -332,6 +359,12 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
                     });
                     _showGlassSnackBar("Verified. Set new PIN.");
                   } else {
+                    _recoveryInputController.clear();
+                    setState(() {
+                      _recoveryFieldGeneration++;
+                      _displayRecoveryCooldown = _securityController
+                          .getRecoveryRemainingCooldownSeconds();
+                    });
                     _showGlassSnackBar("Verification Failed", isError: true);
                   }
                 }
@@ -457,6 +490,7 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
     String? hint,
     ColorScheme colorScheme, {
     bool isLabelOnly = false,
+    Key? fieldKey,
   }) {
     if (isLabelOnly) return const SizedBox.shrink();
     return Container(
@@ -467,9 +501,15 @@ class _SecuritySetupScreenState extends State<SecuritySetupScreen> {
         border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.3)),
       ),
       child: TextField(
-        key: ValueKey(
-          label,
-        ), // Ensures fresh state for every unique field label
+        // Defaults to a label-based key (fine for fields that are never
+        // cleared-and-reused mid-flow, e.g. the setup Question/Answer
+        // fields). Callers that clear() and immediately let the user
+        // retype -- currently only the recovery-answer field -- pass a
+        // fieldKey that changes on every attempt instead, since a fixed
+        // key does not force Flutter to replace the underlying native
+        // text input connection (see the recovery field in
+        // global_lock_screen.dart for the same fix and fuller context).
+        key: fieldKey ?? ValueKey(label),
         controller: ctrl,
         decoration: InputDecoration(
           labelText: label,

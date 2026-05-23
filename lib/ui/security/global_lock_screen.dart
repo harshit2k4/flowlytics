@@ -7,6 +7,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../logic/controllers/security_controller.dart';
+import '../../logic/controllers/period_controller.dart';
 
 class GlobalLockScreen extends StatefulWidget {
   const GlobalLockScreen({super.key});
@@ -26,9 +27,18 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
   // Inline error state instead of Snackbar for foolproof visibility
   String? _recoveryError;
 
+  // Bumped every time the recovery field is cleared after a failed
+  // attempt, so its ValueKey below actually changes. A key that never
+  // changes does not force Flutter to replace the underlying native
+  // text input connection -- which is what was causing old, deleted
+  // text to resurface merged with newly typed text after a wrong
+  // answer (a stuck IME composing region).
+  int _recoveryFieldGeneration = 0;
+
   // Cooldown UI
   Timer? _cooldownTimer;
   int _displayCooldown = 0;
+  int _displayRecoveryCooldown = 0;
 
   @override
   void initState() {
@@ -50,7 +60,14 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
   void _startCooldownListener() {
     _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       final rem = _securityController.getRemainingCooldownSeconds();
-      if (rem != _displayCooldown) setState(() => _displayCooldown = rem);
+      final recoveryRem = _securityController
+          .getRecoveryRemainingCooldownSeconds();
+      if (rem != _displayCooldown || recoveryRem != _displayRecoveryCooldown) {
+        setState(() {
+          _displayCooldown = rem;
+          _displayRecoveryCooldown = recoveryRem;
+        });
+      }
     });
   }
 
@@ -74,7 +91,14 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
         if (_securityController.verifyPin(_pin)) {
           setState(() => _pin = "");
         } else {
-          setState(() => _pin = "");
+          // Refresh the cooldown display right away. Otherwise it only
+          // updates on the next 1-second poll, leaving the pad usable
+          // for a moment after a failure that just started a lockout.
+          setState(() {
+            _pin = "";
+            _displayCooldown = _securityController
+                .getRemainingCooldownSeconds();
+          });
           // Optional haptic feedback
         }
       });
@@ -86,6 +110,7 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
     setState(() {
       _isRecovering = false;
       _recoveryInputController.clear();
+      _recoveryFieldGeneration++;
       _recoveryError = null; // Clear error
       FocusScope.of(context).unfocus();
     });
@@ -114,6 +139,10 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
                     ),
                     // Only show pad if NOT recovering
                     if (!_isRecovering) _buildNumericPad(colorScheme),
+                    if (!_isRecovering &&
+                        _displayCooldown == 0 &&
+                        !_securityController.isHardLocked)
+                      _buildAttemptPolicyHint(colorScheme),
                   ],
                 ),
               ),
@@ -166,6 +195,7 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
             setState(() {
               _isRecovering = true;
               _recoveryInputController.clear();
+              _recoveryFieldGeneration++;
               _recoveryError = null;
             });
           },
@@ -177,7 +207,66 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
             ),
           ),
         ),
+
+        // The nuclear option only shows once PIN and recovery are BOTH
+        // permanently locked out. Recovery has its own, more lenient
+        // ceiling (see SecurityController.isRecoveryHardLocked) -- if it
+        // still has attempts left, "Forgot PIN?" above is still a
+        // legitimate way back in, so this should not show yet. Only
+        // once neither path can succeed is this a genuine dead end,
+        // with no server-side account recovery to fall back on since
+        // the app is fully offline. This is the last resort: it
+        // sacrifices the data to restore access to the app itself.
+        if (isHard && _securityController.isRecoveryHardLocked) ...[
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: () => _showResetEverythingDialog(colorScheme),
+            icon: const Icon(
+              Icons.restart_alt_rounded,
+              size: 18,
+              color: Colors.redAccent,
+            ),
+            label: const Text(
+              "Reset App & Erase All Data",
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
       ],
+    );
+  }
+
+  void _showResetEverythingDialog(ColorScheme colorScheme) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("Reset App & Erase All Data?"),
+        content: const Text(
+          "This is the only way back in after too many incorrect attempts. "
+          "It will permanently delete all logged data, your name, and your "
+          "App Lock settings, and restart Flowlytics as a fresh install. "
+          "This cannot be undone.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              await Get.find<PeriodController>().wipeData();
+            },
+            child: const Text(
+              "Erase Everything",
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -234,7 +323,7 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
             child: TextField(
               // ValueKey ensures the TextField is totally replaced on rebuilds,
               // breaking the connection to the OS keyboard buffer to stop text duplication.
-              key: const ValueKey("recovery_field"),
+              key: ValueKey("recovery_field_$_recoveryFieldGeneration"),
               controller: _recoveryInputController,
               decoration: const InputDecoration(
                 labelText: "Your Answer",
@@ -277,6 +366,16 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
             height: 55,
             child: FilledButton(
               onPressed: () {
+                if (_displayRecoveryCooldown > 0 ||
+                    _securityController.isRecoveryHardLocked) {
+                  setState(() {
+                    _recoveryError = _securityController.isRecoveryHardLocked
+                        ? "Too many attempts. Try again later."
+                        : "Too many attempts. Try again in $_displayRecoveryCooldown seconds.";
+                  });
+                  return;
+                }
+
                 if (_securityController.verifyRecoveryAnswer(
                   _recoveryInputController.text,
                 )) {
@@ -285,17 +384,57 @@ class _GlobalLockScreenState extends State<GlobalLockScreen> {
                   setState(() {
                     _isRecovering = false;
                     _pin = "";
+                    _recoveryFieldGeneration++;
                     _recoveryError = null;
                   });
                 } else {
-                  // Clear immediately on error so old text doesn't persist
+                  // Clear immediately on error so old text doesn't persist.
+                  // Bumping the generation forces a fresh TextField
+                  // (fresh native text input connection) rather than
+                  // reusing the same one -- reusing it is what let the
+                  // just-cleared text resurface merged with new input.
                   _recoveryInputController.clear();
                   setState(() {
+                    _recoveryFieldGeneration++;
+                    _displayRecoveryCooldown = _securityController
+                        .getRecoveryRemainingCooldownSeconds();
                     _recoveryError = "Incorrect Answer. Try again.";
                   });
                 }
               },
               child: const Text("Unlock App"),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttemptPolicyHint(ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, left: 24, right: 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.info_outline_rounded,
+              size: 12,
+              color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              "Repeated incorrect attempts trigger cooldowns, and will "
+              "eventually lock the app permanently.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+              ),
             ),
           ),
         ],
