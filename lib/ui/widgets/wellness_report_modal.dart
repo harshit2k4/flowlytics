@@ -338,7 +338,7 @@ class _WellnessReportModalState extends State<WellnessReportModal> {
                                 flex: 2,
                                 child: _buildDataPoint(
                                   context,
-                                  "5 Days",
+                                  "${log.endDate.difference(log.startDate).inDays + 1} Days",
                                   "Duration",
                                 ),
                               ),
