@@ -20,6 +20,17 @@ class NotificationPermissionScreen extends StatelessWidget {
   });
 
   // Brand detection
+  //
+  // NOTE: Platform.operatingSystemVersion is a kernel/build version
+  // string, not manufacturer branding on most real Android devices
+  // and ROMs it will not contain "xiaomi", "samsung", etc, so this very
+  // likely falls through to the generic "Android Device" branch below in
+  // most real-world cases despite the matching below. The pill this
+  // feeds is purely cosmetic (it doesn't gate any functionality), so
+  // that fallback is harmless, just less personalized than intended.
+  // A reliable fix needs the device's actual manufacturer, which Dart
+  // can only get via a plugin such as device_info_plus (not currently a
+  // dependency) or a native platform channel, neither added here.
   String _getDisplayIdentity() {
     if (Platform.isIOS) return "iPhone";
     if (Platform.isLinux) return "Linux Desktop";
