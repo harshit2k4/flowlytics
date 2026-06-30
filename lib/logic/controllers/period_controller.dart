@@ -4,6 +4,7 @@ import 'package:flowlytics/logic/services/enhanced_navigator_engine.dart';
 import 'package:flowlytics/logic/services/enhanced_prediction_engine.dart';
 import 'package:flowlytics/logic/services/notification_service.dart';
 import 'package:flowlytics/ui/nav_wrapper.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
@@ -213,15 +214,23 @@ class PeriodController extends GetxController {
       userName: userName.value,
     );
 
-    debugPrint("------------------------------------------");
-    debugPrint("🤖 BIO-ENGINE AUDIT: ${userName.value}");
-    debugPrint("📅 Math Prediction: ${mathBase.toString().split(' ').first}");
-    debugPrint(
-      "🎯 Navigator Result: ${result.adjustedDate.toString().split(' ').first}",
-    );
-    debugPrint("⚡ Shifted Active: ${result.isShifted}");
-    if (result.isShifted) debugPrint("📝 Insight: ${result.insight}");
-    debugPrint("------------------------------------------");
+    // Gated behind kDebugMode: this logs the user's actual name, real
+    // predicted dates, and personalized insight text (which can include
+    // symptom-derived content) on every check-in and refresh. Plain
+    // debugPrint is not stripped from release builds on its own, so
+    // without this gate it would still execute and be readable via
+    // adb logcat on a release build.
+    if (kDebugMode) {
+      debugPrint("------------------------------------------");
+      debugPrint("BIO-ENGINE AUDIT: ${userName.value}");
+      debugPrint("Math Prediction: ${mathBase.toString().split(' ').first}");
+      debugPrint(
+        "Navigator Result: ${result.adjustedDate.toString().split(' ').first}",
+      );
+      debugPrint("Shifted Active: ${result.isShifted}");
+      if (result.isShifted) debugPrint("Insight: ${result.insight}");
+      debugPrint("------------------------------------------");
+    }
 
     predictedStartDate.value = result.adjustedDate;
     navigatorInsight.value = result.insight;
@@ -493,7 +502,7 @@ class PeriodController extends GetxController {
     todayLog.value = elenaSymptoms;
     refreshData();
 
-    debugPrint("✅ Elena Injection Complete.");
+    debugPrint("Elena Injection Complete.");
 
     // Navigate directly to the Widget to avoid Route generator error
     Get.offAll(() => const NavWrapper());
@@ -547,7 +556,7 @@ class PeriodController extends GetxController {
     todayLog.value = lunaSymptoms;
     refreshData();
 
-    debugPrint("✅ Luna Injection Complete.");
+    debugPrint("Luna Injection Complete.");
 
     // Navigate directly to the Widget to avoid Route generator error
     Get.offAll(() => const NavWrapper());
