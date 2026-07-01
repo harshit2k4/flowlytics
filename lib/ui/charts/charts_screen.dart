@@ -51,7 +51,7 @@ class ChartsScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    _buildMD3BarChart(context, validLogs),
+                    _Md3BarChart(logs: validLogs),
                     const SizedBox(height: 40),
                     _buildGlassyStatsGrid(context, validLogs),
                     const SizedBox(height: 24),
@@ -307,141 +307,6 @@ class ChartsScreen extends StatelessWidget {
   //   );
   // }
 
-  Widget _buildMD3BarChart(BuildContext context, List<PeriodLog> logs) {
-    double avgCycle =
-        logs.map((l) => l.cycleLength).reduce((a, b) => a + b) / logs.length;
-
-    // Create a controller so the scrollbar knows where the scroll position is
-    final ScrollController chartScrollController = ScrollController();
-
-    double screenWidth = MediaQuery.of(context).size.width - 48;
-    double requiredWidth = logs.length * 45.0;
-    double finalChartWidth = requiredWidth > screenWidth
-        ? requiredWidth
-        : screenWidth;
-
-    return SizedBox(
-      // Increase height by 20 to give room for the scrollbar at the bottom
-      height: 240,
-      child: Scrollbar(
-        controller: chartScrollController,
-        thumbVisibility:
-            true, // Keeps the bar visible so she knows it is scrollable
-        thickness: 3, // Keep it very thin and "slight"
-        radius: const Radius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.only(
-            bottom: 16.0,
-          ), // Padding to keep the bar below the titles
-          child: SingleChildScrollView(
-            controller: chartScrollController,
-            scrollDirection: Axis.horizontal,
-            reverse: true,
-            physics: const BouncingScrollPhysics(),
-            child: SizedBox(
-              width: finalChartWidth,
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceAround,
-                  maxY: 45,
-                  barTouchData: BarTouchData(
-                    enabled: true,
-                    touchTooltipData: BarTouchTooltipData(
-                      getTooltipColor: (_) =>
-                          Theme.of(context).colorScheme.secondaryContainer,
-                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                        return BarTooltipItem(
-                          "${rod.toY.toInt()} Days",
-                          TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onSecondaryContainer,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  titlesData: FlTitlesData(
-                    show: true,
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (v, m) => Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            "C${v.toInt() + 1}",
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Theme.of(context).colorScheme.outline,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    leftTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                  ),
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
-                    getDrawingHorizontalLine: (value) {
-                      if ((value - avgCycle).abs() < 0.5) {
-                        return FlLine(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.tertiary.withOpacity(0.5),
-                          strokeWidth: 2,
-                          dashArray: [4, 4],
-                        );
-                      }
-                      return const FlLine(color: Colors.transparent);
-                    },
-                  ),
-                  borderData: FlBorderData(show: false),
-                  barGroups: logs.asMap().entries.map((entry) {
-                    int days = entry.value.cycleLength;
-                    bool isOutlier = days < 21 || days > 35;
-
-                    return BarChartGroupData(
-                      x: entry.key,
-                      barRods: [
-                        BarChartRodData(
-                          toY: days.toDouble().clamp(0, 45),
-                          color: isOutlier
-                              ? Theme.of(context).colorScheme.error
-                              : Theme.of(context).colorScheme.primary,
-                          width: 18,
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(6),
-                          ),
-                          backDrawRodData: BackgroundBarChartRodData(
-                            show: true,
-                            toY: 45,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.surfaceVariant.withOpacity(0.3),
-                          ),
-                        ),
-                      ],
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildGlassyStatsGrid(BuildContext context, List<PeriodLog> logs) {
     double avg =
         logs.map((l) => l.cycleLength).reduce((a, b) => a + b) / logs.length;
@@ -574,6 +439,172 @@ class ChartsScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// Was previously built by a method on ChartsScreen (a StatelessWidget)
+// that created a new ScrollController on every build and never disposed
+// it (real memory leak), since nothing ever released the old
+// controllers. Extracted into its own StatefulWidget so the controller
+// is created once in initState() and disposed properly, without
+// converting the whole ChartsScreen to stateful for it. Rendering is
+// otherwise identical to the original method.
+class _Md3BarChart extends StatefulWidget {
+  final List<PeriodLog> logs;
+
+  const _Md3BarChart({required this.logs});
+
+  @override
+  State<_Md3BarChart> createState() => _Md3BarChartState();
+}
+
+class _Md3BarChartState extends State<_Md3BarChart> {
+  late final ScrollController _chartScrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _chartScrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _chartScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final logs = widget.logs;
+    double avgCycle =
+        logs.map((l) => l.cycleLength).reduce((a, b) => a + b) / logs.length;
+
+    double screenWidth = MediaQuery.of(context).size.width - 48;
+    double requiredWidth = logs.length * 45.0;
+    double finalChartWidth = requiredWidth > screenWidth
+        ? requiredWidth
+        : screenWidth;
+
+    return SizedBox(
+      // Increase height by 20 to give room for the scrollbar at the bottom
+      height: 240,
+      child: Scrollbar(
+        controller: _chartScrollController,
+        thumbVisibility:
+            true, // Keeps the bar visible so she knows it is scrollable
+        thickness: 3, // Keep it very thin and "slight"
+        radius: const Radius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.only(
+            bottom: 16.0,
+          ), // Padding to keep the bar below the titles
+          child: SingleChildScrollView(
+            controller: _chartScrollController,
+            scrollDirection: Axis.horizontal,
+            reverse: true,
+            physics: const BouncingScrollPhysics(),
+            child: SizedBox(
+              width: finalChartWidth,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: 45,
+                  barTouchData: BarTouchData(
+                    enabled: true,
+                    touchTooltipData: BarTouchTooltipData(
+                      getTooltipColor: (_) =>
+                          Theme.of(context).colorScheme.secondaryContainer,
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        return BarTooltipItem(
+                          "${rod.toY.toInt()} Days",
+                          TextStyle(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSecondaryContainer,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (v, m) => Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            "C${v.toInt() + 1}",
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Theme.of(context).colorScheme.outline,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (value) {
+                      if ((value - avgCycle).abs() < 0.5) {
+                        return FlLine(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.tertiary.withOpacity(0.5),
+                          strokeWidth: 2,
+                          dashArray: [4, 4],
+                        );
+                      }
+                      return const FlLine(color: Colors.transparent);
+                    },
+                  ),
+                  borderData: FlBorderData(show: false),
+                  barGroups: logs.asMap().entries.map((entry) {
+                    int days = entry.value.cycleLength;
+                    bool isOutlier = days < 21 || days > 35;
+
+                    return BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: days.toDouble().clamp(0, 45),
+                          color: isOutlier
+                              ? Theme.of(context).colorScheme.error
+                              : Theme.of(context).colorScheme.primary,
+                          width: 18,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(6),
+                          ),
+                          backDrawRodData: BackgroundBarChartRodData(
+                            show: true,
+                            toY: 45,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceVariant.withOpacity(0.3),
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
