@@ -2,7 +2,6 @@ import 'package:flowlytics/ui/widgets/comfort_overlay.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import 'dart:ui';
 import '../../logic/controllers/period_controller.dart';
@@ -18,9 +17,6 @@ class _CalendarPageState extends State<CalendarPage> {
   final PeriodController controller = Get.find<PeriodController>();
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-  final int _baseline = Hive.box(
-    'settings_box',
-  ).get('baseline_cycle', defaultValue: 28);
 
   int _displayLimit = 10;
 
