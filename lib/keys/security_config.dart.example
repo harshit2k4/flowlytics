@@ -3,7 +3,7 @@ class SecurityConfig {
   // The key must be unique and very hard to guess.
   
   // The key must be exactly 32 characters long.
-  static const String backupSecretKey = "dummy_key_do_not_use_in_production";
+  static const String backupKey = "dummy_key_do_not_use_in_production";
 
   // The backupIv must be exactly 16 characters long.
   static const String backupIv = "dont_use_in_prod";
