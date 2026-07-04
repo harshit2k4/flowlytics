@@ -159,26 +159,27 @@ class BackupService {
         return false;
       }
 
-      final periodBox = Hive.box<PeriodLog>('period_box');
-      final dailyBox = Hive.box<DailyLog>('daily_box');
+      final rawPeriods = data['periods'];
+      final rawDaily = data['daily'];
+      if (rawPeriods is! List || rawDaily is! List) {
+        debugPrint("Backup: Missing or malformed periods/daily sections");
+        return false;
+      }
 
-      // Wipe current data before restoration
-      await periodBox.clear();
-      await dailyBox.clear();
-
-      // Restore Periods
-      for (var p in data['periods']) {
-        await periodBox.add(
+      // Parse and validate EVERYTHING before touching the existing data.
+      // Any bad row (malformed date, missing field, wrong type) throws
+      // here and is caught below, so a corrupt backup fails with the
+      // user's current data still intact instead of half-restored.
+      final List<PeriodLog> parsedPeriods = [
+        for (final p in rawPeriods)
           PeriodLog(
             startDate: DateTime.parse(p['start']),
             endDate: DateTime.parse(p['end']),
           ),
-        );
-      }
+      ];
 
-      // Restore Daily Logs
-      for (var d in data['daily']) {
-        await dailyBox.add(
+      final List<DailyLog> parsedDaily = [
+        for (final d in rawDaily)
           DailyLog(
             date: DateTime.parse(d['date']),
             moods: List<String>.from(d['moods']),
@@ -187,8 +188,18 @@ class BackupService {
             flow: List<String>.from(d['flow']),
             sleep: List<String>.from(d['sleep'] ?? []),
           ),
-        );
-      }
+      ];
+
+      final periodBox = Hive.box<PeriodLog>('period_box');
+      final dailyBox = Hive.box<DailyLog>('daily_box');
+
+      // Only now, with a fully validated backup in hand, replace the
+      // current data. Each box is written with a single addAll rather
+      // than one awaited add per row.
+      await periodBox.clear();
+      await periodBox.addAll(parsedPeriods);
+      await dailyBox.clear();
+      await dailyBox.addAll(parsedDaily);
 
       debugPrint(
         "Backup: Restoration successful. ${periodBox.length} periods restored.",
