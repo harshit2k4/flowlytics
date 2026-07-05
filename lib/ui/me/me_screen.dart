@@ -292,6 +292,11 @@ class _MeScreenState extends State<MeScreen> {
                       "Import Data",
                       "Restore from file",
                       () async {
+                        // 0. Importing replaces everything currently in the
+                        // app, so confirm before even opening the file picker.
+                        final bool confirmed = await _confirmImport(context);
+                        if (!confirmed) return;
+
                         // 1. Run the import service
                         bool success = await BackupService.importLogs();
 
@@ -618,6 +623,37 @@ class _MeScreenState extends State<MeScreen> {
                 ),
               ],
             ),
+          ),
+        ) ??
+        false;
+  }
+
+  // Confirms an import before it runs. Deliberately has no "don't show
+  // again" option: importing replaces all current data, so it should be
+  // confirmed every time.
+  Future<bool> _confirmImport(BuildContext context) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text("Replace current data?"),
+            content: const Text(
+              "Importing a backup replaces all data currently in the app with "
+              "the contents of the file. This cannot be undone. Export a "
+              "backup first if you want to keep what you have now.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text(
+                  "Choose file",
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
         ) ??
         false;
