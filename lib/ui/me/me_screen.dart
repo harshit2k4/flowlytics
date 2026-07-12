@@ -296,6 +296,20 @@ class _MeScreenState extends State<MeScreen> {
                         // app, so confirm before even opening the file picker.
                         final bool confirmed = await _confirmImport(context);
                         if (!confirmed) return;
+                        if (!mounted) return;
+
+                        // If App Lock is on, require the PIN too: an import
+                        // replaces everything just as completely as a wipe,
+                        // which is already PIN-gated. With no App Lock set,
+                        // the gate resolves to true immediately.
+                        final bool verified = await SecurityReauthGate.require(
+                          context,
+                          title: "Confirm Import",
+                          message:
+                              "Enter your PIN to replace all current data.",
+                        );
+                        if (!verified) return;
+                        if (!mounted) return;
 
                         // 1. Run the import service
                         bool success = await BackupService.importLogs();
