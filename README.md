@@ -2,6 +2,8 @@
 
 <h1>Flowlytics</h1>
 
+<p><em>Know your cycle. Own your data.</em></p>
+
 <p>Period tracking and cycle forecasting, with hormone insights and no data ever leaving your device.</p>
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.22%2B-02569B?style=flat-square&logo=flutter&logoColor=white)](https://flutter.dev)
@@ -328,7 +330,7 @@ By using Flowlytics, you accept that the app provides informational estimates on
 
 Contributions that improve the hormone engine accuracy, refine the prediction logic, or elevate the UI are especially welcome.
 
-I particularly invite **women developers and health researchers** to contribute your domain knowledge and lived perspective are genuinely invaluable when building tools of this nature.
+I particularly invite **women developers and health researchers** to contribute - your domain knowledge and lived perspective are genuinely invaluable when building tools of this nature.
 
 **Steps:**
 
