@@ -32,7 +32,6 @@
 // }
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Logic to get seed colors that are vibrant and appealing
@@ -62,9 +61,11 @@ class AppTheme {
             onSurface: isDark ? const Color(0xFFE6E1E5) : Colors.black87,
             surface: isDark ? const Color(0xFF1C1B1F) : null,
           ),
-      textTheme: GoogleFonts.lexendTextTheme(
-        isDark ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
-      ),
+      // Lexend is bundled in assets/fonts (declared in pubspec.yaml), so no
+      // network access is needed to render it. apply() keeps the base
+      // theme's sizes, weights and colors and only swaps the font family.
+      textTheme: (isDark ? ThemeData.dark() : ThemeData.light()).textTheme
+          .apply(fontFamily: 'Lexend'),
     );
   }
 }
