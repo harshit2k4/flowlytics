@@ -18,7 +18,6 @@ dependencies:
   flutter_secure_storage: ^10.3.4
   flutter_timezone: ^3.0.1
   get: ^4.7.3
-  google_fonts: ^7.0.0
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   intl: ^0.20.2
@@ -52,6 +51,21 @@ flutter:
           weight: 700
         - asset: assets/fonts/CrimsonText-Italic.ttf
           style: italic
+    # Lexend (SIL Open Font License, see assets/fonts/Lexend-OFL.txt).
+    # Bundled so the app never needs to download fonts at runtime.
+    - family: Lexend
+      fonts:
+        - asset: assets/fonts/Lexend-Regular.ttf
+        - asset: assets/fonts/Lexend-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Lexend-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Lexend-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Lexend-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/Lexend-Black.ttf
+          weight: 900
   assets:
     - assets/animations/cat_animation.json
 
